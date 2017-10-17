@@ -68,5 +68,8 @@ $messages = [
     'settingsUpMonitor'                 => 'Up Monitors',
     'settingsDownMonitor'               => 'Down Monitors',
     'settingsPausedMonitor'             => 'Paused Monitors',
-    'settingsApiKeySaved'               => 'API-Key saved successfully'
+    'settingsApiKeySaved'               => 'API-Key saved successfully',
+    'synchronizeMonitors'               => 'Synchronize monitors list',
+    'synchronizeTitle'                  => 'Synchronize',
+    'synchronizeSuccess'                => 'Monitors synchronization completed',
 ];

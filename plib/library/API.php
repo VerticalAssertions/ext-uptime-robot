@@ -75,6 +75,51 @@ class Modules_UptimeRobot_API
     }
 
     /**
+     * Create monitor for the transmitted url and API key
+     *
+     * @param string $apikey
+     * @param string $url
+     * @param array  $options optional parameters
+     *
+     * @return mixed|stdClass
+     */
+    public static function createUptimeMonitor($apikey, $url, $options)
+    {
+        $params = array(
+            'url' => $url,
+            'type' => 1,
+            'friendly_name' => !empty($options['friendly_name']) ? $options['friendly_name'] : $url,
+            );
+
+        $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/newMonitor', $params);
+
+        if (!empty($response)) {
+            return $response;
+        }
+
+        return FALSE;
+    }
+
+    /**
+     * Delete monitor for the transmitted monitor ID and API key
+     *
+     * @param string $apikey
+     * @param string $id
+     *
+     * @return mixed|stdClass
+     */
+    public static function deleteUptimeMonitor($apikey, $id)
+    {
+        $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/newMonitor', array('id' => $id));
+
+        if (!empty($response)) {
+            return $response;
+        }
+
+        return FALSE;
+    }
+
+    /**
      * Helper function for the cURL request to the Uptime Robot API
      *
      * @param string $apikey

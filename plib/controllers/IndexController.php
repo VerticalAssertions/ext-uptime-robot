@@ -31,6 +31,10 @@ class IndexController extends pm_Controller_Action
             [
                 'title'  => pm_Locale::lmsg('settingsTitle'),
                 'action' => 'settings',
+            ],
+            [
+                'title'  => pm_Locale::lmsg('synchronizeTitle'),
+                'action' => 'synchronize',
             ]
         ];
     }
@@ -171,6 +175,34 @@ class IndexController extends pm_Controller_Action
     }
 
     /**
+     * Settings Action
+     */
+    public function synchronizeAction()
+    {
+        $this->view->syncForm = new pm_Form_Simple();
+        $this->view->syncForm->addElement(
+            'hidden', 'sync', [
+            'value' => '1'
+        ]);
+        $this->view->syncForm->addControlButtons(
+            [
+                'cancelHidden' => true,
+                'sendTitle'    => pm_Locale::lmsg('synchronizeTitle'),
+            ]);
+
+        if ($this->getRequest()->isPost() && $this->view->syncForm->isValid($this->getRequest()->getPost())) {
+            $sync = $this->view->syncForm->getValue('sync');
+
+            if ($sync) {
+                // Sync action
+                $this->_status->addInfo(pm_Locale::lmsg('synchronizeSuccess'));
+            }
+
+            $this->_helper->json([ 'redirect' => pm_Context::getActionUrl(string  $controller, string  $action = 'synchronize') ]);
+        }
+    }
+
+    /**
      * Overview Action
      */
     public function overviewAction()
@@ -214,6 +246,24 @@ class IndexController extends pm_Controller_Action
         $this->_attachUptimePercentageToMonitors($monitors);
         $list = Modules_UptimeRobot_List_Monitors::getList($monitors, $this->view, $this->_request);
         $this->_helper->json($list->fetchData());
+    }
+
+    /**
+     * Sync websites list Action
+     * Keeps monitors list up-to-date with plesk websites
+     */
+    public function syncAction()
+    {
+        // Get websites-monitors mapping table (json file)
+        // Get list of primary and non-primary websites through Plesk XML API
+
+        // Loop over monitors list
+        // if monitor url not found in list of websites: delete monitor
+        //$jsonResult = Modules_UptimeRobot_API::deleteUptimeMonitor($this->api_key, $monitor_id); // {"stat":"ok","monitor":{"id":777712827}}
+
+        // Loop over websites
+        // if website not found in monitors list: create monitor
+        //$jsonMonitor = Modules_UptimeRobot_API::createUptimeMonitor($this->api_key, $url, $options); // {"stat": "ok","monitor": {"id": 777810874,"status": 1}}}
     }
 
     /**

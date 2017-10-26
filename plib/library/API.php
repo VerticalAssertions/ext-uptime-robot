@@ -83,12 +83,12 @@ class Modules_UptimeRobot_API
      *
      * @return mixed|stdClass
      */
-    public static function createUptimeMonitor($apikey, $url, $options)
+    public static function createUptimeMonitor($apikey, $domain, $options)
     {
         $params = array(
-            'url' => $url,
+            'url' => 'http'.($ssl ? 's' : '').'://'.$domain,
             'type' => 1,
-            'friendly_name' => !empty($options['friendly_name']) ? $options['friendly_name'] : $url,
+            'friendly_name' => !empty($options['friendly_name']) ? $options['friendly_name'] : $domain,
             );
 
         $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/newMonitor', $params);

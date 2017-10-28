@@ -17,8 +17,14 @@ class IndexController extends pm_Controller_Action
     {
         parent::init();
 
-        $this->view->headLink()->appendStylesheet(pm_Context::getBaseUrl().'/css/styles.css');
         $this->view->headLink()->appendStylesheet(pm_Context::getBaseUrl().'/css/circle.css');
+        $this->view->headLink()->appendStylesheet(pm_Context::getBaseUrl().'/bootstrap/css/bootstrap.min.css');
+        $this->view->headLink()->appendStylesheet(pm_Context::getBaseUrl().'/font-awesome/css/font-awesome.min.css');
+
+        // Use require.js to solve conflict between prototype (loaded by Plesk) and jquery (used by this extension)
+        // Based on http://www.softec.lu/site/DevelopersCorner/BootstrapPrototypeConflict and http://jsfiddle.net/dgervalle/e8Apv/
+        $this->view->headScript()->appendFile(pm_Context::getBaseUrl().'/js/require.min.js');
+        $this->view->headScript()->appendFile(pm_Context::getBaseUrl().'/js/jquery.global.js'); // Loads jQuery and Bootstrap JS
 
         $this->api_key = pm_Settings::get('apikey', '');
         //$this->monitor_suffix = pm_Settings::get('monitorsuffix', '');
@@ -39,7 +45,7 @@ class IndexController extends pm_Controller_Action
             ]
         ];
 
-        $this->mapping_table = json_decode(pm_Settings::get('mappingTable', json_encode(array())));
+        $this->mapping_table = unserialize(pm_Settings::get('mappingTable', serialize(array())));
     }
 
     /**
@@ -195,12 +201,17 @@ class IndexController extends pm_Controller_Action
     }
 
     /**
-     * Settings Action
+     * Synchronize Action
      */
     public function synchronizeAction()
     {
-        $this->_status->addMessage('info', print_r($this->mapping_table, true));
 
+        $list = $this->_getMappingTableList();
+
+        // List object for pm_View_Helper_RenderList
+        $this->view->synchronize = $list;
+
+        /*
         $this->view->synchronize = [
             [
                 'icon' => '/theme/icons/32/plesk/refresh.png',
@@ -214,6 +225,18 @@ class IndexController extends pm_Controller_Action
                 'link' => $this->_helper->url('remove-monitors'),
             ],
         ];
+        */
+    }
+
+    /**
+     * Synchronize List Data Action
+     */
+    public function synchronizeDataAction()
+    {
+        $list = $this->_getMappingTableList();
+
+        // Json data from pm_View_List_Simple
+        $this->_helper->json($list->fetchData());
     }
 
     /**
@@ -268,18 +291,46 @@ class IndexController extends pm_Controller_Action
      */
     public function syncMonitorsAction()
     {
+        // NON-EXISTENT DOMAINS: monitor removal
+        // Loop over monitors list
+        $del_monitors = array('ok' => array(), 'nok' => array());
+        foreach($this->mapping_table as $guid=>$monitor) {
+            try {
+                $pm_Domain = pm_Domain::getByGuid($guid);
+            }
+            catch(Exception $e) {
+                $jsonRemoval = Modules_UptimeRobot_API::deleteUptimeMonitor($this->api_key, $monitor->ur_id); // { "stat":"ok", "monitor":{ "id":777712827 }}
+
+                if($jsonRemoval && $jsonRemoval->stat == 'ok') {
+                    $del_monitors['ok'][] = $monitor->url;
+                    unset($this->mapping_table[$guid]);
+
+                    // Store new mapping_table
+                    pm_Settings::set('mappingTable', json_encode($this->mapping_table));
+                }
+                elseif($jsonCreation) {
+                    $del_monitors['nok'][] = $monitor->url.' : '.json_encode($jsonCreation);
+                }
+                else {
+                    $del_monitors['nok'][] = $monitor->url.': '.pm_Locale::lmsg('synchronizeNoResponse');
+                }
+            }
+        }
+
+        // DEPRECATED DOMAINS: monitor removal
+        if(!empty($del_monitors['ok'])) {
+            $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeRemovalOK').implode(', ', $del_monitors['ok']));
+        }
+        if(!empty($del_monitors['nok'])) {
+            $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeRemovalNOK')."\n".implode("\n", $del_monitors['nok']));
+        }
+
         // Get Server IP's
         $request = '<ip><get/></ip>';
         $ips = array();
         $jsonIps = json_decode(json_encode(pm_ApiRpc::getService()->call($request)->ip->get->result->addresses));
         foreach($jsonIps->ip_info as $ip_info) {
             $ips[] = $ip_info->ip_address;
-        }
-
-        // Loop over monitors list
-        foreach($this->mapping_table as $monitor) {
-            // if monitor name suffix defined and monitor url not found in list of websites: delete monitor
-            //$jsonResult = Modules_UptimeRobot_API::deleteUptimeMonitor($this->api_key, $monitor_id); // {"stat":"ok","monitor":{"id":777712827}}
         }
 
         // Loop over websites
@@ -296,7 +347,7 @@ class IndexController extends pm_Controller_Action
             }
 
             // GUID not in local mapping table: create monitor
-            if(!property_exists ($this->mapping_table, $guid)) {
+            if(!array_key_exists($guid, $this->mapping_table)) {
                 $display_name = $pm_Domain->getDisplayName();
                 // Find if domain is served in ssl
                 $ssl = array(FALSE);
@@ -310,20 +361,17 @@ class IndexController extends pm_Controller_Action
                 $jsonCreation = Modules_UptimeRobot_API::createUptimeMonitor($this->api_key, $name, array(
                     'friendly_name' => $display_name,
                     'ssl' => $ssl[0],
-                    ));
+                    )); // { "stat": "ok", "monitor": { "id": 777810874, "status": 1 }}
 
                 if($jsonCreation && $jsonCreation->stat == 'ok' && !empty($jsonCreation->monitor->id)) {
                     $new_monitors['ok'][] = $name;
-                    $this->mapping_table->$guid = array(
+                    $this->mapping_table[$guid] = array(
                         'ur_id' => $jsonCreation->monitor->id,
                         'url' => $name,
                         );
 
                     // Store new mapping_table
-                    pm_Settings::set('mappingTable', json_encode($this->mapping_table));
-                }
-                elseif($jsonCreation && $jsonCreation->stat == 'fail' && !empty($jsonCreation->error)) {
-                    $new_monitors['nok'][] = $name.' : '.$jsonCreation->error->message;
+                    pm_Settings::set('mappingTable', serialize($this->mapping_table));
                 }
                 elseif($jsonCreation) {
                     $new_monitors['nok'][] = $name.' : '.json_encode($jsonCreation);
@@ -347,13 +395,20 @@ class IndexController extends pm_Controller_Action
         $this->_redirect('index/synchronize');
     }
 
-    public function removeAllAction()
+    public function removeAction()
     {
-        //
+        $messages = [];
+        foreach((array)$this->_getParam('ids') as $id) {
+
+            // Here we should remove the object with id = $id
+
+            $messages[] = ['status' => 'info', 'content' => "Row #$id was successfully removed."];
+        }
+        $this->_helper->json(['status' => 'success', 'statusMessages' => $messages]);
     }
 
     /**
-     * Crates the chart data
+     * Creates the chart data
      *
      * @param $monitors
      * @param $timespan
@@ -649,6 +704,203 @@ class IndexController extends pm_Controller_Action
         $overallUptimePercentage = ($durationOnline / $sum) * 100;
 
         return $overallUptimePercentage;
+    }
+
+    /**
+     * Builds data for Synchronize tab list
+     */
+    private function _getMappingTableList()
+    {
+        // Get Uptime Monitors
+        $monitors = Modules_UptimeRobot_API::fetchUptimeMonitors($this->api_key);
+        $monitors_ids = array_map(function($monitor) { return $monitors->id; }, $monitors);
+        $monitor_urls = array();
+        foreach($monitors as $monitor) {
+            $monitor_urls[preg_replace('#^http(?:s)?://(.*)/?$#U', '$1', $monitor->url)][] = $monitor->id;
+        }
+
+        $this->_status->addMessage('info', print_r($monitor_urls, true));
+
+        $data = array();
+        foreach(pm_Domain::getAllDomains() as $id=>$pm_Domain) {
+            $guid = $pm_Domain->getGuid();
+            $actions = array(
+                'monitor' => '<span class="text-muted"><i class="fa fa-remove"></i> '.pm_Locale::lmsg('synchronizeDeleteMonitor').'</span>',
+                'mapunmap' => '<span class="text-muted"><i class="fa fa-chain-broken"></i> '.pm_Locale::lmsg('synchronizeUnmap').'</span>',
+                'remap' => '<span class="text-muted"><i class="fa fa-random"></i> '.pm_Locale::lmsg('synchronizeRemap').'</span>',
+                );
+
+            if($pm_Domain->isActive()) {
+                $plesk_status = '<i class="fa fa-check-circle text-success" title="'.pm_Locale::lmsg('synchronizePleskID').' '.$pm_Domain->getId().' '.pm_Locale::lmsg('synchronizeActive').'"></i>';
+            }
+            else {
+                $plesk_status = '<i class="fa fa-exclamation-triangle text-warning" title="'.pm_Locale::lmsg('synchronizePleskID').' '.$pm_Domain->getId().' - '.pm_Locale::lmsg('synchronizeInactiveOrDisabled').'"></i>';
+            }
+
+            if(array_key_exists($guid, $this->mapping_table)) {
+                $mapping_status = '<i class="fa fa-check-circle text-success"></i>';
+                $actions['mapunmap'] = '<i class="fa fa-chain-broken text-info"></i> <a href="'.$this->_helper->url('unmap', 'index').'">'.pm_Locale::lmsg('synchronizeUnmap').'</a>';
+
+                if(in_array($this->mapping_table[$guid]['ur_id'], $monitor_ids)) {
+                    $ur_status = '<i class="fa fa-check-circle text-success" title="'.pm_Locale::lmsg('synchronizeURid').' '.$this->mapping_table[$guid]['ur_id'].'"></i>';
+                    $actions['monitor'] = '<i class="fa fa-remove text-info"></i> <a href="'.$this->_helper->url('deleteMonitor', 'index').'?monitor_id='.$this->mapping_table[$guid]['ur_id'].'" onmousedown="if(!confirm(\''.pm_Locale::lmsg('synchronizeDeleteMonitorMessage').'\')) { return false; }">'.pm_Locale::lmsg('synchronizeDeleteMonitor').'</a>';
+                }
+                else {
+                    $mapping_status = '<i class="fa fa-exclamation-triangle text-warning" title="'.pm_Locale::lmsg('synchronizeNotInUR').'"></i>';
+                    $ur_status = '<i class="fa fa-ban text-danger" title="'.pm_Locale::lmsg('synchronizeNotInUR').'"></i>';
+                    $actions['monitor'] = '<i class="fa fa-plus text-info"></i> <a href="'.$this->_helper->url('createMonitor', 'index').'?guid='.$guid.'">'.pm_Locale::lmsg('synchronizeCreateMonitor').'</a>';
+                }
+            }
+            else {
+                $mapping_status = '<i class="fa fa-ban text-danger" title="'.pm_Locale::lmsg('synchronizeNoMapping').'"></i>';
+                $ur_status = '<i class="fa fa-ban text-danger" title="'.pm_Locale::lmsg('synchronizeNoMapping').'"></i>';
+                $actions['monitor'] = '<i class="fa fa-plus text-info"></i> <a href="'.$this->_helper->url('createMonitor', 'index').'?guid='.$guid.'">'.pm_Locale::lmsg('synchronizeCreateMonitor').'</a>';
+            }
+
+            // Alternatives among UR monitors ?
+            if(array_key_exists($pm_Domain->getName(), $monitor_urls)) {
+                $ur_status = '<i class="fa fa-exclamation-triangle text-warning" title="'.pm_Locale::lmsg('synchronizeOtherInUR').'"></i>';
+                if(!array_key_exists($guid, $this->mapping_table)) {
+                    $actions['mapunmap'] = '<i class="fa fa-chain text-info"></i> <a href="'.$this->_helper->url('map', 'index').'?guid='.$guid.'">'.pm_Locale::lmsg('synchronizeMap').'</a>';
+                }
+                elseif(!in_array($this->mapping_table[$guid]['ur_id'], $monitor_ids)) {
+                    $actions['remap'] = '<i class="fa fa-random text-info"></i> <a href="#" class="popover-trigger" data-target="#popover-'.$guid.'">'.pm_Locale::lmsg('synchronizeRemap').'</a><div class="list-group hidden" id="popover-'.$guid.'">'.implode('', array_map(function($monitor_id) { return '<a href="'.$this->_helper->url('remap', 'index').'?monitor_id='.$monitor_id.'" class="list-group-item" onmousedown="if(!confirm(\''.pm_Locale::lmsg('synchronizeRemapMessage').'\')) { return false; }">'.pm_Locale::lmsg('synchronizeURid').' '.$monitor_id.'</a>'; }, $monitor_ids)).'</div>'; 
+                }
+            }
+
+            $data[$guid] = array(
+                'name' => $pm_Domain->getName(),
+                'plesk_status' => $plesk_status,
+                'mapping_status' => $mapping_status,
+                'ur_status' => $ur_status,
+                'actions' => '<ul class="actions"><li>'.implode('</li><li>', $actions).'</li>',
+                );
+        }
+    
+        // Find missing domains that still exist in mapping table
+        foreach($this->mapping_table as $guid=>$monitor) {
+            $actions = array(
+                'monitor' => '<span class="text-muted"><i class="fa fa-remove"></i> '.pm_Locale::lmsg('synchronizeDeleteMonitor').'</span>',
+                'mapunmap' => '<span class="text-muted"><i class="fa fa-chain-broken"></i> '.pm_Locale::lmsg('synchronizeUnmap').'</span>',
+                'remap' => '<span class="text-muted"><i class="fa fa-random"></i> '.pm_Locale::lmsg('synchronizeRemap').'</span>',
+                );
+            if(!array_key_exists($guid, $data)) {
+                $mapping_status = '<i class="fa fa-check-circle text-success"></i>';
+                $actions['mapunmap'] = '<i class="fa fa-chain-broken text-info"></i> <a href="'.$this->_helper->url('unmap', 'index').'?guid='.$guid.'" onmousedown="if(!confirm(\''.pm_Locale::lmsg('synchronizeUnmapMessage').'\')) { return false; }">'.pm_Locale::lmsg('synchronizeUnmap').'</a>';
+
+                if(in_array($monitor['ur_id'], $monitor_ids)) {
+                    $ur_status = '<i class="fa fa-check-circle text-success" title="'.pm_Locale::lmsg('synchronizeURid').' '.$monitor['ur_id'].'"></i>';
+                    $actions['monitor'] = '<i class="fa fa-remove text-info"></i> <a href="'.$this->_helper->url('deleteMonitor', 'index').'?monitor_id='.$monitor['ur_id'].'" onmousedown="if(!confirm(\''.pm_Locale::lmsg('synchronizeDeleteMonitorMessage').'\')) { return false; }">'.pm_Locale::lmsg('synchronizeDeleteMonitor').'</a>';
+                }
+                else {
+                    $mapping_status = '<i class="fa fa-exclamation-triangle text-warning" title="'.pm_Locale::lmsg('synchronizeNotInUR').'"></i>';
+                    // Makes no sense to create monitor since domain no more exists
+                    //$actions['monitor'] = '<i class="fa fa-plus text-info"></i> <a href="'.$this->_helper->url('createMonitor', 'index').'?guid='.$guid.'">'.pm_Locale::lmsg('synchronizeCreateMonitor').'</a>';
+
+                    // Alternatives among UR monitors ?
+                    if(array_key_exists($pm_Domain->getName(), $monitor_urls)) {
+                        $ur_status = '<i class="fa fa-exclamation-triangle text-warning" title="'.pm_Locale::lmsg('synchronizeOtherInUR').'"></i>';
+                        // Makes no sense to remap since domain no more exists
+                        //$actions['remap'] = '<i class="fa fa-random text-info"></i> <a href="#" class="popover-trigger" data-target="#popover-'.$guid.'">'.pm_Locale::lmsg('synchronizeRemap').'</a><div class="list-group hidden" id="popover-'.$guid.'">'.implode('', array_map(function($monitor_id) { return '<a href="'.$this->_helper->url('remap', 'index').'?monitor_id='.$monitor_id.'" class="list-group-item" onmousedown="if(!confirm(\''.pm_Locale::lmsg('synchronizeRemapMessage').'\')) { return false; }">'.pm_Locale::lmsg('synchronizeURid').' '.$monitor_id.'</a>'; }, $monitor_urls)).'</div>';
+                    }
+                    else {
+                        $ur_status = '<i class="fa fa-ban text-danger" title="'.pm_Locale::lmsg('synchronizeNotInUR').'"></i>';
+                    }
+                }
+
+                $data[$guid] = array(
+                    'name' => $monitor['url'],
+                    'plesk_status' => '<i class="fa fa-ban text-danger" title="'.pm_Locale::lmsg('synchronizeNotInPlesk').'"></i>',
+                    'mapping_status' => $mapping_status,
+                    'ur_status' => $ur_status,
+                    'actions' => '<ul class="actions"><li>'.implode('</li><li>', $actions).'</li>',
+                    );
+            }
+        }
+
+
+        $list = new pm_View_List_Simple($this->view, $this->_request);
+        $list->setData($data);
+        $list->setColumns([
+            pm_View_List_Simple::COLUMN_SELECTION,
+            'name' => [
+                'title' => pm_Locale::lmsg('synchronizeDomain'), 
+                'noEscape' => true, 
+                'searchable' => true, 
+            ],
+            'plesk_status' => [
+                'title' => pm_Locale::lmsg('synchronizePleskStatus'), 
+                'noEscape' => true, 
+                'sortable' => true, 
+            ],
+            'mapping_status' => [
+                'title' => pm_Locale::lmsg('synchronizeMappingStatus'), 
+                'noEscape' => true, 
+                'sortable' => true, 
+            ],
+            'ur_status' => [
+                'title' => pm_Locale::lmsg('synchronizeURstatus'), 
+                'noEscape' => true, 
+                'sortable' => true, 
+            ], 
+            'actions' => [
+                'title' => pm_Locale::lmsg('synchronizeActions'), 
+                'noEscape' => true, 
+                'sortable' => false, 
+            ],
+        ]);
+
+        $list->setTools([
+            [
+                'title' => 'Check', 
+                'description' => 'Link to controller custom and action test of the extension', 
+                'controller' => 'custom', 
+                'action' => 'test', 
+            ], [
+                'title' => 'Remove selection', 
+                'description' => 'Remove selected rows.', 
+                'execGroupOperation' => $this->_helper->url('remove') , 
+            ], 
+        ]);
+
+        // Take into account synchronizeDataAction corresponds to the URL /synchronize-data/
+        $list->setDataUrl(['action' => 'synchronize-data']);
+        return $list;
+    }
+
+    /**
+    * Search a value recursively and returns true or false
+    * If $key is not the empty string, the value has to be found associated with this key
+    * If $primary is true, returns the first key of first dimension under which $needle was found
+    *
+    * Description
+    * mixed _in_array_recursive ( mixed $needle , array $haystack [, mixed $key = '' [, bool $strict = false [, bool $primary = false] ] ] )
+    * 
+    * @param  mixed  $needle    the searched value
+    * @param  array  $haystack  the searched array
+    * @param  mixed  $key       the optional key associated to $needle
+    * @param  bool   $strict    whether to compare strictly $needle and $key with their counterpart in array
+    * @param  bool   $primary   return key of first dimension when needle is found
+    * @return mixed             key of first dimension or true if needle was found, false if needle was not found
+    */
+    private function _in_array_recursive($needle, $haystack, $key = '', $strict = FALSE, $primary =  FALSE)
+    {
+        if(!is_array($haystack)) {
+            return FALSE;
+        }
+
+        foreach($haystack as $k=>$value) {
+            if(($strict ? $value === $needle : $value == $needle)
+            && ($key === '' || ($strict ? $k === $key : $k == $key))
+            || (is_array($value) && $this->_in_array_recursive($needle, $value, $key, $strict, $primary) !== FALSE)) {
+                if($primary) {
+                    return $k;
+                }
+                return TRUE;
+            }
+        }
+
+        return FALSE;
     }
 
 }

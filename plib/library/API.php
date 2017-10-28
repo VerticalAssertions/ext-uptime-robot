@@ -110,7 +110,7 @@ class Modules_UptimeRobot_API
      */
     public static function deleteUptimeMonitor($apikey, $id)
     {
-        $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/newMonitor', array('id' => $id));
+        $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/deleteMonitor', array('id' => $id));
 
         if (!empty($response)) {
             return $response;

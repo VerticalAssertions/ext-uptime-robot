@@ -28,7 +28,7 @@ if (Prototype.BrowserFeatures.ElementExtensions) {
                     event.target[method] = undefined;
                     setTimeout(function () {
                         delete event.target[method];
-                    }, 0);
+                    }, 300);
                 };
                 pluginsToDisable.each(function (plugin) { 
                     $(window).on(method + '.bs.' + plugin, handler); 
@@ -55,7 +55,7 @@ require(['jquery', 'bootstrap'], function($) {
 	    $('.fa').tooltip();
 
 	    // Popover on links or buttons opening a next DOM element
-	    $(".popover-trigger").popover({
+	    /*$(".popover-trigger").popover({
 	        container: 'body',
 	        html: true,
 	        trigger: 'focus',
@@ -68,5 +68,15 @@ require(['jquery', 'bootstrap'], function($) {
 	    /*$(document).on("click", ".popover-trigger", function(e) {
 	        e.preventDefault();
 	    });*/
+
+	    $('.dropdown-toggle').dropdown();
+	    $('.popup-menu').parent().on('show.bs.dropdown', function (e) {
+		  $(this).find('.popup-menu').removeClass('collapsed');
+		  $(this).find('.btn-group').addClass('btn-group-open');
+		});
+		$('.popup-menu').parent().on('hide.bs.dropdown', function (e) {
+		  $(this).find('.popup-menu').addClass('collapsed');
+		  $(this).find('.btn-group').removeClass('btn-group-open');
+		});
 	});
 });

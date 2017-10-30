@@ -60,12 +60,13 @@ class Modules_UptimeRobot_API
      * Fetches all monitors with logs for the transmitted API key
      *
      * @param string $apikey
+     * @param array $monitors
      *
      * @return mixed|stdClass
      */
-    public static function fetchUptimeMonitors($apikey)
+    public static function fetchUptimeMonitors($apikey, $monitors = array())
     {
-        $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/getMonitors', array('logs' => 1));
+        $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/getMonitors', !empty($monitors) ? array('monitors' => implode('-', $monitors), 'logs' => 1) : array('logs' => 1));
 
         if (!empty($response->monitors)) {
             return $response->monitors;
@@ -86,7 +87,7 @@ class Modules_UptimeRobot_API
     public static function createUptimeMonitor($apikey, $domain, $options)
     {
         $params = array(
-            'url' => 'http'.($ssl ? 's' : '').'://'.$domain,
+            'url' => 'http'.($options['ssl'] ? 's' : '').'://'.$domain,
             'type' => 1,
             'friendly_name' => !empty($options['friendly_name']) ? $options['friendly_name'] : $domain,
             );

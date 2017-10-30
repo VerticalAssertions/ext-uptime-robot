@@ -382,32 +382,13 @@
     "@hr-border": "@gray-lighter"
   },
   "css": [
-    "navs.less",
-    "labels.less",
-    "badges.less",
-    "alerts.less",
-    "list-group.less",
-    "wells.less",
-    "close.less",
     "component-animations.less",
     "dropdowns.less",
-    "tooltip.less",
-    "popovers.less",
-    "modals.less"
+    "tooltip.less"
   ],
   "js": [
-    "alert.js",
-    "button.js",
-    "carousel.js",
     "dropdown.js",
-    "modal.js",
-    "tooltip.js",
-    "popover.js",
-    "tab.js",
-    "affix.js",
-    "collapse.js",
-    "scrollspy.js",
-    "transition.js"
+    "tooltip.js"
   ],
-  "customizerUrl": "http://getbootstrap.com/docs/3.3/customize/?id=5313f64ad25a46390b7fcba6ec38bad8"
+  "customizerUrl": "http://getbootstrap.com/docs/3.3/customize/?id=7b31e3dc2b4636fe5698fc206c7bae3e"
 }

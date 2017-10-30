@@ -102,9 +102,6 @@
 #pm-list-uptime-robot-table th {
     font-weight: bold;
 }
-#pm-list-uptime-robot-table th, #pm-list-uptime-robot-table td {
-    text-align: center;
-}
 #pm-list-uptime-robot-table th:last-child {
     text-align: right;
 }
@@ -116,16 +113,19 @@
     font-size: 1.5em;
     vertical-align: middle;
 }
-.actions {
-    list-style-type: none;
-    margin: 0;
-    float: right;
+#pm-list-uptime-robot-container > .list {
+    overflow: visible;
 }
-.actions li {
-    display: inline-block;
-    min-width: 80px;
-    text-align: left;
-    margin-right: 20px;
+#pm-list-uptime-robot-container th:last-child {
+    width: 1%;
+}
+#pm-list-uptime-robot-container .dropdown-menu {
+    left: initial;
+    right: 0;
+    display: block;
+    border-radius: 0;
+    -webkit-box-shadow: none;
+    box-shadow: none;
 }
 
 .text-muted {
@@ -154,13 +154,12 @@
     background: transparent !important;
     border: none !important;
 }
-.popover.popover-links {
-    border: none;
-    padding: 0;
-}
-.popover.popover-links .popover-content {
-    padding: 0;
-}
-.popover.popover-links .popover-content .list-group {
-    margin-bottom: 0;
+
+.popup-menu.popup-box ul>li>span {
+    display: block;
+    padding: 7px 10px;
+    clear: both;
+    font-weight: 400;
+    line-height: 16px;
+    white-space: nowrap;
 }

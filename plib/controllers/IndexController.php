@@ -92,10 +92,13 @@ class IndexController extends pm_Controller_Action
 
             if ($api_key) {
                 $account = Modules_UptimeRobot_API::fetchUptimeRobotAccount($api_key);
-                if ($account->stat == 'ok') {
+                if (isset($account->stat) && $account->stat == 'ok') {
                     $this->_status->addMessage('info', pm_Locale::lmsg('setupApiKeySaved'));
                 } else {
-                    $this->_status->addError(pm_Locale::lmsg('setupApiKeyInvalid').json_encode($account));
+                    $error = isset($account->errorMsg) ? $account->errorMsg : json_encode($account);
+                    $this->_status->addError(pm_Locale::lmsg('setupApiKeyInvalid', [
+                        'error' => $error
+                    ]));
                 }
             }
 
@@ -196,8 +199,8 @@ class IndexController extends pm_Controller_Action
         $monitors = Modules_UptimeRobot_API::fetchUptimeMonitors($this->api_key);
         $this->view->timespan = $timespan;
         $this->view->globalUptimePercentage = $this->_attachUptimePercentageToMonitors($monitors, $timespan);
-        $this->view->monitorsList = Modules_UptimeRobot_List_Monitors::getList($monitors, $this->view, $this->_request);
-        $this->view->eventsList = Modules_UptimeRobot_List_Events::getList($monitors, $this->view, $this->_request);
+        $this->view->monitorsList = new Modules_UptimeRobot_List_Monitors($this->view, $this->_request, $monitors);
+        $this->view->eventsList = new Modules_UptimeRobot_List_Events($this->view, $this->_request, $monitors);
 
         $chartData = $this->_getChartDataFor($monitors, $timespan);
         $this->view->chartData = $chartData['data'];
@@ -213,7 +216,7 @@ class IndexController extends pm_Controller_Action
     public function eventslistDataAction()
     {
         $monitors = Modules_UptimeRobot_API::fetchUptimeMonitors($this->api_key);
-        $list = Modules_UptimeRobot_List_Events::getList($monitors, $this->view, $this->_request);
+        $list = new Modules_UptimeRobot_List_Events($this->view, $this->_request, $monitors);
         $this->_helper->json($list->fetchData());
     }
 
@@ -224,7 +227,7 @@ class IndexController extends pm_Controller_Action
     {
         $monitors = Modules_UptimeRobot_API::fetchUptimeMonitors($this->api_key);
         $this->_attachUptimePercentageToMonitors($monitors);
-        $list = Modules_UptimeRobot_List_Monitors::getList($monitors, $this->view, $this->_request);
+        $list = new Modules_UptimeRobot_List_Monitors($this->view, $this->_request, $monitors);
         $this->_helper->json($list->fetchData());
     }
 
@@ -433,11 +436,14 @@ class IndexController extends pm_Controller_Action
         foreach ($lastXDays as $currentDay) {
             $duration = 0;
             $textOffline = '';
-            $textsOnline = '';
+            $textOnline = '';
 
-            foreach ($monitors as &$monitor) {
-                foreach ($monitor->logs as &$log) {
-                    if ($currentDay == date('Y-m-d', $log->datetime) && $log->type == 1) {
+            foreach ($monitors as $monitor) {
+                foreach ($monitor->logs as $log) {
+                    if ($currentDay != date('Y-m-d', $log->datetime)) {
+                        continue;
+                    }
+                    if (1 == $log->type) { // offline
                         $duration += ($log->duration / 60 / 60); //seconds => hours
                         $textOffline .= $monitor->url.': '.($this->_getHTMLByDuration($log->duration)).'<br>';
                     }
@@ -456,7 +462,7 @@ class IndexController extends pm_Controller_Action
             $yOffline[] = $offlinePercentage.'%';
             $yOnline[] = $onlinePercentage.'%';
             $textsOffline[] = $textOffline;
-            $textsOnline[] = $textsOnline;
+            $textsOnline[] = $textOnline;
         }
 
         $data = [];
@@ -594,7 +600,7 @@ class IndexController extends pm_Controller_Action
             }
         }
 
-        if (($globalUptimes[$timespan]['online'] + $globalUptimes[$timespan]['offline']) === 0) {
+        if (!isset($globalUptimes[$timespan]) || ($globalUptimes[$timespan]['online'] + $globalUptimes[$timespan]['offline']) === 0) {
             return false;
         }
 

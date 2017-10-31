@@ -24,6 +24,14 @@ Available actions :
 
 ![](https://www.verticalassertions.fr/sites/default/files/ext-uptime-robot.jpg)
 
+## Install
+
+* Download ZIP and unzip or clone repository
+* Enter directory
+* Select all file and create zip
+* Go to https://<your-plesk>:8443/admin/extension/installed click upload extension button
+* Upload your zip
+
 ## Acknowledgments
 
 This fork is a quick dev to add some write capabilities to original project.

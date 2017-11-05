@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <module>
-  <id>uptime-robot-edit</id>
+  <id>uptime-robot</id>
   <name>Uptime Robot with Edit</name>
   <description>Uptime robot can check up to 50 free monitors every 5 minutes. To use this extension, you must first register at https://uptimerobot.com/. </description>
   <version>1.1.1</version>

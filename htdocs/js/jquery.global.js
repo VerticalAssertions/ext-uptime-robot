@@ -52,7 +52,7 @@ require(['jquery', 'bootstrap'], function($) {
 
 require(['jquery', 'bootstrap'], function($) {
 	$(document).ready(function() {
-	    $('.fa').tooltip();
+	    $('[data-toggle="tooltip"]').tooltip();
 
 	    // Popover on links or buttons opening a next DOM element
 	    /*$(".popover-trigger").popover({

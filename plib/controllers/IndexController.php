@@ -720,7 +720,8 @@ class IndexController extends pm_Controller_Action
     private function _getMappingTableList()
     {
         // Get Uptime Monitors
-        $monitors = Modules_UptimeRobot_API::fetchUptimeMonitors($this->api_key);
+        $monitors = Modules_UptimeRobot_API::fetchUptimeMonitors($this->api_key, array(), TRUE); // indexed by id
+
         $monitor_ids = $monitor_urls = array();
         foreach($monitors as $monitor) {
             $monitor_ids[] = $monitor->id;
@@ -728,7 +729,7 @@ class IndexController extends pm_Controller_Action
         }
 
         //$this->_status->addMessage('info', print_r($this->mapping_table, true));
-        //$this->_status->addMessage('info', print_r($monitor_ids, true));
+        //$this->_status->addMessage('info', count($monitors));
 
         $data = array();
         foreach(pm_Domain::getAllDomains() as $id=>$pm_Domain) {
@@ -772,15 +773,21 @@ class IndexController extends pm_Controller_Action
             }
 
             // Alternatives among UR monitors ?
-            if(array_key_exists($pm_Domain->getName(), $monitor_urls)) {
+            if(array_key_exists($pm_Domain->getName(), $monitor_urls) || array_key_exists('www.'.$pm_Domain->getName(), $monitor_urls)) {
                 if($show_others_alert) {
                     $ur_status = '<i class="fa fa-exclamation-triangle text-warning"></i> '.pm_Locale::lmsg('synchronizeMayBe'.$Rem.'apped');
                 }
                 if(!array_key_exists($guid, $this->mapping_table)) {
-                    $actions['mapunmap'] = implode('</li><li>', array_map(function($monitor_id) use ($guid) { return '<a href="'.$this->_helper->url('map', 'index').'?guid='.$guid.'&ur_id='.$monitor_id.'" class="list-group-item"><i class="fa fa-chain text-info"></i> '.pm_Locale::lmsg('synchronizeMapToMonitor').' '.$monitor_id.'</a>'; }, $monitor_urls[$pm_Domain->getName()]));
+                    $actions['mapunmap'] = implode('</li><li>', array_map(function($monitor_id) use ($guid, $monitors) {
+                        $title = '<div class=\'text-left\'><strong>ID</strong> '.$monitor_id.'<br /><strong>Name</strong> '.htmlentities($monitors[$monitor_id]->friendly_name).'<br /><strong>URL</strong> '.htmlentities($monitors[$monitor_id]->url).'<br /><strong>Created on</strong> '.date('d/m/Y', $monitors[$monitor_id]->create_datetime).'</div>';
+                        return '<a href="'.$this->_helper->url('map', 'index').'?guid='.$guid.'&ur_id='.$monitor_id.'" class="list-group-item" data-toggle="tooltip" data-html="true" data-placement="left" title="'.$title.'"><i class="fa fa-chain text-info"></i> '.pm_Locale::lmsg('synchronizeMapToMonitor').' '.$monitor_id.'</a>';
+                    }, $monitor_urls[$pm_Domain->getName()]));
                 }
                 elseif(!in_array($this->mapping_table[$guid]['ur_id'], $monitor_ids)) {
-                    $actions['remap'] = implode('</li><li>', array_map(function($monitor_id) use ($guid) { return '<a href="'.$this->_helper->url('map', 'index').'?guid='.$guid.'&ur_id='.$monitor_id.'" class="list-group-item" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeRemapMessage', [ 'domain' => $pm_Domain->getName() ]).'\')) { return false; }"><i class="fa fa-random text-info"></i> '.pm_Locale::lmsg('synchronizeRemapToMonitor').' '.$monitor_id.'</a>'; }, $monitor_urls[$pm_Domain->getName()]));
+                    $actions['remap'] = implode('</li><li>', array_map(function($monitor_id) use ($guid, $monitors) {
+                        $title = '<div class=\'text-left\'><strong>ID</strong> '.$monitor_id.'<br /><strong>Name</strong> '.htmlentities($monitors[$monitor_id]->friendly_name).'<br /><strong>URL</strong> '.htmlentities($monitors[$monitor_id]->url).'<br /><strong>Created on</strong> '.date('d/m/Y', $monitors[$monitor_id]->create_datetime).'</div>';
+                        return '<a href="'.$this->_helper->url('map', 'index').'?guid='.$guid.'&ur_id='.$monitor_id.'" class="list-group-item" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeRemapMessage', [ 'domain' => $pm_Domain->getName() ]).'\')) { return false; }" data-toggle="tooltip" data-html="true" data-placement="left" title="'.$title.'"><i class="fa fa-random text-info"></i> '.pm_Locale::lmsg('synchronizeRemapToMonitor').' '.$monitor_id.'</a>';
+                    }, $monitor_urls[$pm_Domain->getName()]));
                 }
             }
 

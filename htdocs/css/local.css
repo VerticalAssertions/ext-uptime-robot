@@ -154,6 +154,9 @@
     background: transparent !important;
     border: none !important;
 }
+.tooltip-inner {
+    max-width: 300px;
+}
 
 .popup-menu.popup-box ul>li>span {
     display: block;

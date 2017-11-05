@@ -3,7 +3,7 @@
   <id>uptime-robot</id>
   <name>Uptime Robot with Edit</name>
   <description>Uptime robot can check up to 50 free monitors every 5 minutes. To use this extension, you must first register at https://uptimerobot.com/. </description>
-  <version>1.1.2</version>
+  <version>1.1.3</version>
   <release>1</release>
   <category>monitoring</category>
   <vendor>Plesk</vendor>

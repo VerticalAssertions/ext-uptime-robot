@@ -1,3 +1,7 @@
+# 1.1.3
+
+* Added an action to update an existing mapped monitor with domain data
+
 # 1.1.2
 
 * Monitors fetching with Uptime Robot API now grabs *ALL* monitors: the getMonitors method gives 50 monitors max at a time...

@@ -1,7 +1,6 @@
 # 1.1.1
 
-* Changed extension name, description, version
-* Changed extension repository: you can test this version without removing [Plesk version](https://github.com/plesk/ext-uptime-robot) first
+* Changed extension name, description, version and repository
 
 # 1.1.0
 

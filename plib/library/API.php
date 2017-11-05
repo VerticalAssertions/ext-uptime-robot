@@ -120,6 +120,33 @@ class Modules_UptimeRobot_API
     }
 
     /**
+     * Edit monitor for the transmitted url and API key
+     *
+     * @param string $apikey
+     * @param string $url
+     * @param array  $options optional parameters
+     *
+     * @return mixed|stdClass
+     */
+    public static function editUptimeMonitor($apikey, $domain, $id, $options)
+    {
+        $params = array(
+            'id' => $id,
+            'url' => 'http'.($options['ssl'] ? 's' : '').'://'.$domain,
+            'type' => 1,
+            'friendly_name' => !empty($options['friendly_name']) ? $options['friendly_name'] : $domain,
+            );
+
+        $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/editMonitor', $params);
+
+        if (!empty($response)) {
+            return $response;
+        }
+
+        return FALSE;
+    }
+
+    /**
      * Delete monitor for the transmitted monitor ID and API key
      *
      * @param string $apikey

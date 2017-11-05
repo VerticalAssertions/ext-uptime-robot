@@ -378,6 +378,51 @@ class IndexController extends pm_Controller_Action
     }
 
     /**
+     * Updates an existing Uptime Robot monitor with domain data
+     * Then redirects to Synchronize tab
+     */
+    public function updatemonitorAction()
+    { 
+        $guid = $this->getRequest()->getParam('guid');
+        $ur_id = $this->getRequest()->getParam('ur_id');
+
+        // Validate url parameters
+        if(!empty($guid) && preg_match('#^[a-f0-9-]+$#', $guid)
+        && !empty($ur_id) && preg_match('#^[0-9]+$#', $ur_id)) {
+            $pm_Domain = pm_Domain::getByGuid($guid);
+            
+            // Find if domain is served in ssl
+            $ssl = array(FALSE);
+            $request = '<site><get><filter><guid>'.$guid.'</guid></filter><dataset><hosting/></dataset></get></site>';
+            foreach(pm_ApiRpc::getService()->call($request)->site->get->result->data->hosting->vrt_hst->property as $property) {
+                if($property->name == 'ssl') {
+                    $ssl = $property->value;
+                }
+            }
+
+            $json = Modules_UptimeRobot_API::editUptimeMonitor($this->api_key, $pm_Domain->getName(), $ur_id, array(
+                'friendly_name' => $pm_Domain->getDisplayName(),
+                'ssl' => $ssl[0],
+                )); // {"stat":"ok","monitor":{"id":777712827}}
+
+            if($json && $json->stat == 'ok' && !empty($json->monitor->id)) {
+                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeUpdateMonitorDone', [ 'domain' => $pm_Domain->getName(), 'ur_id' => $json->monitor->id ]));
+            }
+            elseif($json) {
+                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeUpdateMonitorNOK', [ 'domain' => $pm_Domain->getName(), 'json' => json_encode($json) ]));
+            }
+            else {
+                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeNoResponse'));
+            }
+        }
+        else {
+            $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeInvalidRequest'));
+        }
+
+        $this->_redirect('index/synchronize');
+    }
+
+    /**
      * Removes an Uptime Robot monitor and updates local mapping table
      * Then redirects to Synchronize tab
      */
@@ -736,10 +781,10 @@ class IndexController extends pm_Controller_Action
             $guid = $pm_Domain->getGuid();
             $actions = array();
             $show_others_alert = TRUE;
-            $Rem = 'M';
 
             $plesk_status = '<i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizePleskIs').' '.($pm_Domain->isActive() ? pm_Locale::lmsg('synchronizeActive') : pm_Locale::lmsg('synchronizeInactiveOrDisabled'));
 
+            // Mapping found
             if(array_key_exists($guid, $this->mapping_table) && ($this->mapping_table[$guid]['delete_datetime'] == 0 || time() < $this->mapping_table[$guid]['delete_datetime'] + self::UR_DELAY)) {
                 $mapping_status = '<i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizeMappingOK');
                 $actions['mapunmap'] = '<a href="'.$this->_helper->url('unmap', 'index').'?guid='.$guid.'"><i class="fa fa-chain-broken text-info"></i> '.pm_Locale::lmsg('synchronizeUnmap').'</a>';
@@ -751,21 +796,26 @@ class IndexController extends pm_Controller_Action
                 $pending = $delay_create > 0 ? array('Create' => $delay_create/60 > 1 ? ceil($delay_create/60).' min' : $delay_create.' sec') : FALSE;
                 $pending = $delay_delete > 0 ? array('Delete' => $delay_delete/60 > 1 ? ceil($delay_delete/60).' min' : $delay_delete.' sec') : $pending;
                 
+                // Monitor creation/deletion is pending 
                 if($pending) {
                     $ur_status = '<i class="fa fa-circle-o-notch fa-spin text-info"></i> '.pm_Locale::lmsg('synchronizePending'.key($pending), [ 'delay' => reset($pending) ]);
                     $show_others_alert = FALSE;
                 }
+                // Monitor exists
                 elseif(in_array($this->mapping_table[$guid]['ur_id'], $monitor_ids)) {
-                    $ur_status = '<i class="fa fa-check-circle text-success" title=""></i> '.pm_Locale::lmsg('synchronizeURid', [ 'ur_id' => $this->mapping_table[$guid]['ur_id'] ]);
+                    $ur_status = '<span data-toggle="tooltip" data-html="true" title="'.$this->_tooltip_content_monitor($monitors[$this->mapping_table[$guid]['ur_id']]).'"><i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizeURid', [ 'ur_id' => $this->mapping_table[$guid]['ur_id'] ]).'<span>';
+                    
+                    $actions['updatemonitor'] = '<a href="'.$this->_helper->url('updateMonitor', 'index').'?guid='.$guid.'&ur_id='.$this->mapping_table[$guid]['ur_id'].'"><i class="fa fa-refresh text-info"></i> '.pm_Locale::lmsg('synchronizeUpdateMonitor').'</a>';
                     $actions['monitor'] = '<a href="'.$this->_helper->url('deleteMonitor', 'index').'?guid='.$guid.'&ur_id='.$this->mapping_table[$guid]['ur_id'].'" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeDeleteMonitorMessage', [ 'ur_id' => $this->mapping_table[$guid]['ur_id'] ]).'\')) { return false; }"><i class="fa fa-trash text-info"></i> '.pm_Locale::lmsg('synchronizeDeleteMonitor').'</a>';
                     $show_others_alert = FALSE;
-                    $Rem = 'Rem';
                 }
+                // Monitor does not exist
                 else {
                     $ur_status = '<i class="fa fa-ban text-danger"></i> '.pm_Locale::lmsg('synchronizeMonitorNotFound', [ 'ur_id' => $this->mapping_table[$guid]['ur_id'] ]);
                     $actions['monitor'] = '<a href="'.$this->_helper->url('createMonitor', 'index').'?guid='.$guid.'"><i class="fa fa-plus text-info"></i> '.pm_Locale::lmsg('synchronizeCreateMonitor').'</a>';
                 }
             }
+            // No mapping
             else {
                 $mapping_status = '<i class="fa fa-ban text-danger"></i> '.pm_Locale::lmsg('synchronizeNoMapping');
                 $ur_status = '<i class="fa fa-ban text-danger"></i> '.pm_Locale::lmsg('synchronizeNoMonitorToMap');
@@ -776,18 +826,18 @@ class IndexController extends pm_Controller_Action
             $monitor_urls = array_key_exists($pm_Domain->getName(), $monitors_urls) ? $monitors_urls[$pm_Domain->getName()] : (array_key_exists('www.'.$pm_Domain->getName(), $monitors_urls) ? $monitors_urls['www.'.$pm_Domain->getName()] : FALSE);
             if(!empty($monitor_urls)) {
                 if($show_others_alert) {
-                    $ur_status = '<i class="fa fa-exclamation-triangle text-warning"></i> '.pm_Locale::lmsg('synchronizeMayBe'.$Rem.'apped');
+                    $ur_status = '<i class="fa fa-exclamation-triangle text-warning"></i> '.pm_Locale::lmsg('synchronizeMayBeMapped');
                 }
+                // Can be mapped
                 if(!array_key_exists($guid, $this->mapping_table)) {
                     $actions['mapunmap'] = implode('</li><li>', array_map(function($monitor_id) use ($guid, $monitors, $pm_Domain) {
-                        $title = '<div class=\'text-left\'><strong>ID</strong> '.$monitor_id.'<br /><strong>Name</strong> '.htmlentities($monitors[$monitor_id]->friendly_name).'<br /><strong>URL</strong> '.htmlentities($monitors[$monitor_id]->url).'<br /><strong>Created on</strong> '.date('d/m/Y', $monitors[$monitor_id]->create_datetime).'</div>';
-                        return '<a href="'.$this->_helper->url('map', 'index').'?guid='.$guid.'&ur_id='.$monitor_id.'" class="list-group-item" data-toggle="tooltip" data-html="true" data-placement="left" title="'.$title.'"><i class="fa fa-chain text-info"></i> '.pm_Locale::lmsg('synchronizeMapToMonitor').' '.$monitor_id.'</a>';
+                        return '<a href="'.$this->_helper->url('map', 'index').'?guid='.$guid.'&ur_id='.$monitor_id.'" class="list-group-item" data-toggle="tooltip" data-html="true" data-placement="left" title="'.$this->_tooltip_content_monitor($monitors[$monitor_id]).'"><i class="fa fa-chain text-info"></i> '.pm_Locale::lmsg('synchronizeMapToMonitor').' '.$monitor_id.'</a>';
                     }, $monitor_urls));
                 }
+                // Can be remapped
                 elseif(!in_array($this->mapping_table[$guid]['ur_id'], $monitor_ids)) {
                     $actions['remap'] = implode('</li><li>', array_map(function($monitor_id) use ($guid, $monitors, $pm_Domain) {
-                        $title = '<div class=\'text-left\'><strong>ID</strong> '.$monitor_id.'<br /><strong>Name</strong> '.htmlentities($monitors[$monitor_id]->friendly_name).'<br /><strong>URL</strong> '.htmlentities($monitors[$monitor_id]->url).'<br /><strong>Created on</strong> '.date('d/m/Y', $monitors[$monitor_id]->create_datetime).'</div>';
-                        return '<a href="'.$this->_helper->url('map', 'index').'?guid='.$guid.'&ur_id='.$monitor_id.'" class="list-group-item" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeRemapMessage', [ 'domain' => $pm_Domain->getName() ]).'\')) { return false; }" data-toggle="tooltip" data-html="true" data-placement="left" title="'.$title.'"><i class="fa fa-random text-info"></i> '.pm_Locale::lmsg('synchronizeRemapToMonitor').' '.$monitor_id.'</a>';
+                        return '<a href="'.$this->_helper->url('map', 'index').'?guid='.$guid.'&ur_id='.$monitor_id.'" class="list-group-item" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeRemapMessage', [ 'domain' => $pm_Domain->getName() ]).'\')) { return false; }" data-toggle="tooltip" data-html="true" data-placement="left" title="'.$this->_tooltip_content_monitor($monitors[$monitor_id]).'"><i class="fa fa-random text-info"></i> '.pm_Locale::lmsg('synchronizeRemapToMonitor').' '.$monitor_id.'</a>';
                     }, $monitor_urls));
                 }
             }
@@ -807,6 +857,7 @@ class IndexController extends pm_Controller_Action
         foreach($this->mapping_table as $guid=>$monitor) {
             $actions = array();
 
+            // GUID not yet exists in data. This means domain no more exists 
             if(!array_key_exists($guid, $data)) {
                 $mapping_status = '<i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizeMappingStillExists');
                 $actions['mapunmap'] = '<a href="'.$this->_helper->url('unmap', 'index').'?guid='.$guid.'" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeUnmapMessageNoDomain').'\')) { return false; }"><i class="fa fa-chain-broken text-info"></i> '.pm_Locale::lmsg('synchronizeUnmap').'</a>';
@@ -822,7 +873,7 @@ class IndexController extends pm_Controller_Action
                     $ur_status = '<i class="fa fa-circle-o-notch fa-spin text-info"></i> '.pm_Locale::lmsg('synchronizePending'.key($pending), [ 'delay' => reset($pending) ]);
                 }
                 elseif(in_array($monitor['ur_id'], $monitor_ids)) {
-                    $ur_status = '<i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizeMonitorStillExists', [ 'ur_id' => $monitor['ur_id'] ]);
+                    $ur_status = '<span data-toggle="tooltip" data-html="true" title="'.$this->_tooltip_content_monitor($monitors[$monitor['ur_id']]).'"><i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizeMonitorStillExists', [ 'ur_id' => $monitor['ur_id'] ]).'</span>';
                     $actions['monitor'] = '<a href="'.$this->_helper->url('deleteMonitor', 'index').'?guid='.$guid.'&ur_id='.$monitor['ur_id'].'" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeDeleteMonitorMessage').'\')) { return false; }"><i class="fa fa-trash text-info"></i> '.pm_Locale::lmsg('synchronizeDeleteMonitor').'</a>';
                 }
                 else {
@@ -917,6 +968,24 @@ class IndexController extends pm_Controller_Action
         // Take into account synchronizeDataAction corresponds to the URL /synchronize-data/
         $list->setDataUrl(['action' => 'synchronize-data']);
         return $list;
+    }
+
+    /**
+     * Generates html for monitor tooltip content
+     * @param  object $monitor uptime robot monitor
+     * @return string          html
+     */
+    private function _tooltip_content_monitor($monitor)
+    {
+        $content = '
+        <div class="text-left">
+            <strong>ID</strong> '.$monitor->id.'<br />
+            <strong>Name</strong> '.htmlentities($monitor->friendly_name).'<br />
+            <strong>URL</strong> '.htmlentities($monitor->url).'<br />
+            <strong>Created on</strong> '.date('d/m/Y', $monitor->create_datetime).'
+        </div>';
+
+        return str_replace('"', '\'', str_replace("\n", '', $content)); // because it's used in html attribute
     }
 
     /**

@@ -60,19 +60,37 @@ class Modules_UptimeRobot_API
      * Fetches all monitors with logs for the transmitted API key
      *
      * @param string $apikey
-     * @param array $monitors
+     * @param array  $monitors
+     * @param bool   $id_index use UR monitor_id as index in output array
      *
-     * @return mixed|stdClass
+     * @return array of monitors
      */
-    public static function fetchUptimeMonitors($apikey, $monitors = array())
+    public static function fetchUptimeMonitors($apikey, $monitors = array(), $id_index = FALSE)
     {
-        $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/getMonitors', !empty($monitors) ? array('monitors' => implode('-', $monitors), 'logs' => 1) : array('logs' => 1));
+        // UR API pagines getMonitors method with 50 results max
+        $nb_monitors = NULL;
+        $offset = 0;
+        $responses = array();
+        while(is_null($nb_monitors) || $offset < $nb_monitors) {
+            $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/getMonitors', !empty($monitors) ? array('monitors' => implode('-', $monitors), 'logs' => 1, 'offset' => $offset) : array('logs' => 1, 'offset' => $offset));
 
-        if (!empty($response->monitors)) {
-            return $response->monitors;
+            $nb_monitors = is_null($nb_monitors) && !empty($response->pagination->total) ? $response->pagination->total : $nb_monitors;
+            $offset += !empty($response->pagination->limit) ? $response->pagination->limit : 0;
+
+            if (!empty($response->monitors)) {
+                $responses = array_merge($responses, $response->monitors);
+            }
         }
 
-        return array();
+        if($id_index) {
+            $responses_id_indexed = array();
+            foreach($responses as $monitor) {
+                $responses_id_indexed[$monitor->id] = $monitor;
+            }
+            $responses = $responses_id_indexed;
+        }
+
+        return $responses;
     }
 
     /**

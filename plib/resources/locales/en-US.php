@@ -2,6 +2,8 @@
 // Copyright 1999-2017. Plesk International GmbH.
 
 $messages = [
+    'UptimeRobotButtonTitle'            => 'Uptime Robot statistics',
+    'UptimeRobotButtonDescription'      => 'Shows list of monitors, status, average uptime. You may also create and delete monitors for local domains and subdomains',
     'setupApiKeyInputLabel'             => 'Main API Key',
     'setupApiKeySaveButton'             => 'Save',
     'setupApiKeySaved'                  => 'API Key has been saved successfully!',

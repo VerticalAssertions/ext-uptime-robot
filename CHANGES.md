@@ -1,3 +1,8 @@
+# 1.1.2
+
+* Monitors fetching with Uptime Robot API now grabs *ALL* monitors: the getMonitors method gives 50 monitors max at a time...
+* Added buttons to extension index in Plesk sidebar menu and in tools and settings panel
+
 # 1.1.1
 
 * Changed extension name, description, version and repository

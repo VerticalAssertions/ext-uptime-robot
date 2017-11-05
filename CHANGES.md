@@ -1,3 +1,16 @@
+# 1.1.1
+
+* Changed extension name, description, version
+* Changed extension repository: you can test this version without removing [Plesk version](https://github.com/plesk/ext-uptime-robot) first
+
+# 1.1.0
+
+* Forked Plesk extension and added manual edit capabilities in a *Synchronize tab*
+* Create a new monitor
+* Delete an existing monitor
+* Map a (sub)domain to an existing monitor
+* Unmap a (sub)domain from its monitor
+
 # 1.0.0
 
 * Initial release

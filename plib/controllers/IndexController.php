@@ -30,9 +30,6 @@ class IndexController extends pm_Controller_Action
 
         $this->api_key = pm_Settings::get('apikey', '');
 
-        // Local mapping table between domains and monitors
-        $this->mapping_table = unserialize(pm_Settings::get('mappingTable', serialize(array())));
-
         $this->view->pageTitle = 'Uptime Robot';
         $this->view->tabs = [
             [
@@ -48,7 +45,18 @@ class IndexController extends pm_Controller_Action
                 'action' => 'synchronize',
             ]
         ];
+
+        // Database features
+        $this->_requestMapper = new Modules_UptimeRobot_Model_RequestMapper();
+
+        if(isset($this->_requestMapper->_status) && is_array($this->_requestMapper->_status)) {
+            $this->_status->addMessage(key($this->_requestMapper->_status), pm_Locale::lmsg(reset($this->_requestMapper->_status)[0], reset($this->_requestMapper->_status)[1]));
+        }
+
+        // Local mapping table between domains and monitors
+        $this->mapping_table = $this->_requestMapper->getMappingTable();
     }
+    protected $_requestMapper = null;
 
     /**
      * Index Action
@@ -265,26 +273,26 @@ class IndexController extends pm_Controller_Action
         // Validate url parameters
         if(!empty($guid) && preg_match('#^[a-f0-9-]+$#', $guid)
         && !empty($ur_id) && preg_match('#^[0-9]+$#', $ur_id)) {
-            try {
-                $pm_Domain = pm_Domain::getByGuid($guid);
+            $pm_Domain = pm_Domain::getByGuid($guid);
 
-                // Get UR monitor data
-                $monitors = Modules_UptimeRobot_API::fetchUptimeMonitors($this->api_key, array($ur_id));
+            // Get UR monitor data
+            $monitors = Modules_UptimeRobot_API::fetchUptimeMonitors($this->api_key, array($ur_id));
 
-                $this->mapping_table[$guid] = array(
-                    'ur_id' => $ur_id,
-                    'url' => $pm_Domain->getName(),
-                    'create_datetime' => $monitors[0]->create_datetime,
-                    'delete_datetime' => 0,
-                    );
+            $this->mapping_table[$guid] = array(
+                'id' => !empty($this->mapping_table[$guid]) ? $this->mapping_table[$guid]['id'] : NULL,
+                'guid' => $guid,
+                'ur_id' => $ur_id,
+                'url' => $pm_Domain->getName(),
+                'create_datetime' => $monitors[0]->create_datetime,
+                'delete_datetime' => 0,
+                );
 
-                // Store new mapping_table
-                pm_Settings::set('mappingTable', serialize($this->mapping_table));
-
-                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeMapDone', [ 'domain' => $pm_Domain->getName(), 'ur_id' => $ur_id ]));
+            // Update mapping table
+            if($db_error = $this->_requestMapper->saveMapping($this->mapping_table[$guid])) {
+                $this->_status->addMessage('error', $db_error);
             }
-            catch(Exception $e) {
-                $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeDomainNotFound', [ 'guid' => $guid ]));
+            else {
+                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeMapDone', [ 'domain' => $pm_Domain->getName(), 'ur_id' => $ur_id ]));
             }
         }
         else {
@@ -773,10 +781,10 @@ class IndexController extends pm_Controller_Action
             $monitors_urls[preg_replace('#^http(?:s)?://(.*)/?$#U', '$1', $monitor->url)][] = $monitor->id;
         }
 
-        //$this->_status->addMessage('info', print_r($this->mapping_table, true));
+        $this->_status->addMessage('info', print_r($this->mapping_table, true));
         //$this->_status->addMessage('info', count($monitors));
 
-        $data = array();
+        $data = array();/*
         foreach(pm_Domain::getAllDomains() as $id=>$pm_Domain) {
             $guid = $pm_Domain->getGuid();
             $actions = array();
@@ -907,7 +915,7 @@ class IndexController extends pm_Controller_Action
             <div id="gen-id-'.$guid.'" class="popup-box popup-menu dropdown-menu collapsed"><table class="popup-wrapper" cellspacing="0"><tbody><tr><td class="popup-container"><div class="popup-content"><div class="popup-content-area"><ul><li>'.implode('</li><li>', $line['actions']).'</li></div></div></td></tr></tbody></table></div></div>';
         }
         unset($line);
-
+*/
 
         $list = new pm_View_List_Simple($this->view, $this->_request);
         $list->setData($data);

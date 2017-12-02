@@ -43,4 +43,17 @@ class Modules_UptimeRobot_Model_RequestMapper extends Modules_UptimeRobot_Model_
         }
         return 0;
     }
+
+    public function deleteMapping(Modules_UptimeRobot_Model_Request $request)
+    {
+        $sth = $this->_dbh->prepare("DELETE FROM mappingtable WHERE id = :id");
+        $sth->bindParam(':id', $request['id']);
+        
+        $res = $sth->execute();
+        if (!$res) {
+            $error = $sth->errorInfo();
+            return "Error: code='{$error[0]}', message='{$error[2]}'.";
+        }
+        return 0;
+    }
 }

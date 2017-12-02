@@ -279,7 +279,7 @@ class IndexController extends pm_Controller_Action
             $monitors = Modules_UptimeRobot_API::fetchUptimeMonitors($this->api_key, array($ur_id));
 
             $this->mapping_table[$guid] = array(
-                'id' => !empty($this->mapping_table[$guid]) ? $this->mapping_table[$guid]['id'] : NULL,
+                'id' => !empty($this->mapping_table[$guid]) ? $this->mapping_table[$guid]->id : NULL,
                 'guid' => $guid,
                 'ur_id' => $ur_id,
                 'url' => $pm_Domain->getName(),
@@ -314,12 +314,15 @@ class IndexController extends pm_Controller_Action
         if(!empty($guid) && preg_match('#^[a-f0-9-]+$#', $guid)) {
             if(array_key_exists($guid, $this->mapping_table)) {
                 $old_mapping = $this->mapping_table[$guid];
-                unset($this->mapping_table[$guid]);
 
-                // Store new mapping_table
-                pm_Settings::set('mappingTable', serialize($this->mapping_table));
-
-                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeUnmapDone', [ 'domain' => $old_mapping['url'], 'ur_id' => $old_mapping['ur_id'] ]));
+                // Update mapping table
+                if($db_error = $this->_requestMapper->deleteMapping($this->mapping_table[$guid])) {
+                    $this->_status->addMessage('error', $db_error);
+                }
+                else {
+                    $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeUnmapDone', [ 'domain' => $old_mapping->url, 'ur_id' => $old_mapping->ur_id ]));
+                    unset($this->mapping_table[$guid]);
+                }
             }
             else {
                 $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeMappingNotFound', [ 'guid' => $guid ]));
@@ -366,10 +369,13 @@ class IndexController extends pm_Controller_Action
                     'delete_datetime' => 0,
                     );
 
-                // Store new data
-                pm_Settings::set('mappingTable', serialize($this->mapping_table));
-
-                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeCreateMonitorDone', [ 'domain' => $pm_Domain->getName(), 'ur_id' => $json->monitor->id ]));
+                // Update mapping table
+                if($db_error = $this->_requestMapper->saveMapping($this->mapping_table[$guid])) {
+                    $this->_status->addMessage('error', $db_error);
+                }
+                else {
+                    $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeCreateMonitorDone', [ 'domain' => $pm_Domain->getName(), 'ur_id' => $json->monitor->id ]));
+                }
             }
             elseif($json) {
                 $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeCreateMonitorNOK', [ 'domain' => $pm_Domain->getName(), 'json' => json_encode($json) ]));
@@ -444,12 +450,15 @@ class IndexController extends pm_Controller_Action
             $json = Modules_UptimeRobot_API::deleteUptimeMonitor($this->api_key, $ur_id); // { "stat":"ok", "monitor":{ "id":777712827 }}
 
             if($json && $json->stat == 'ok') {
-                $this->mapping_table[$guid]['delete_datetime'] = time();
+                $this->mapping_table[$guid]->delete_datetime = time();
 
-                // Store new data
-                pm_Settings::set('mappingTable', serialize($this->mapping_table));
-
-                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeDeleteMonitorDone', [ 'domain' => $this->mapping_table[$guid]['url'], 'ur_id' => $this->mapping_table[$guid]['ur_id'] ]));
+                // Update mapping table
+                if($db_error = $this->_requestMapper->saveMapping($this->mapping_table[$guid])) {
+                    $this->_status->addMessage('error', $db_error);
+                }
+                else {
+                    $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeDeleteMonitorDone', [ 'domain' => $this->mapping_table[$guid]->url, 'ur_id' => $this->mapping_table[$guid]->ur_id ]));
+                }
             }
             elseif($json) {
                 $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeDeleteMonitorNOK', [ 'ur_id' => $ur_id, 'json' => json_encode($json) ]));
@@ -784,7 +793,7 @@ class IndexController extends pm_Controller_Action
         $this->_status->addMessage('info', print_r($this->mapping_table, true));
         //$this->_status->addMessage('info', count($monitors));
 
-        $data = array();/*
+        $data = array();
         foreach(pm_Domain::getAllDomains() as $id=>$pm_Domain) {
             $guid = $pm_Domain->getGuid();
             $actions = array();
@@ -793,14 +802,14 @@ class IndexController extends pm_Controller_Action
             $plesk_status = '<i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizePleskIs').' '.($pm_Domain->isActive() ? pm_Locale::lmsg('synchronizeActive') : pm_Locale::lmsg('synchronizeInactiveOrDisabled'));
 
             // Mapping found
-            if(array_key_exists($guid, $this->mapping_table) && ($this->mapping_table[$guid]['delete_datetime'] == 0 || time() < $this->mapping_table[$guid]['delete_datetime'] + self::UR_DELAY)) {
+            if(array_key_exists($guid, $this->mapping_table) && ($this->mapping_table[$guid]->delete_datetime == 0 || time() < $this->mapping_table[$guid]->delete_datetime + self::UR_DELAY)) {
                 $mapping_status = '<i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizeMappingOK');
                 $actions['mapunmap'] = '<a href="'.$this->_helper->url('unmap', 'index').'?guid='.$guid.'"><i class="fa fa-chain-broken text-info"></i> '.pm_Locale::lmsg('synchronizeUnmap').'</a>';
 
                 // Uptime Robot getMonitors list is not reliable when monitor was just created/deleted
                 // Pending status
-                $delay_create = $this->mapping_table[$guid]['create_datetime'] + self::UR_DELAY - time();
-                $delay_delete = $this->mapping_table[$guid]['delete_datetime'] + self::UR_DELAY - time();
+                $delay_create = $this->mapping_table[$guid]->create_datetime + self::UR_DELAY - time();
+                $delay_delete = $this->mapping_table[$guid]->delete_datetime + self::UR_DELAY - time();
                 $pending = $delay_create > 0 ? array('Create' => $delay_create/60 > 1 ? ceil($delay_create/60).' min' : $delay_create.' sec') : FALSE;
                 $pending = $delay_delete > 0 ? array('Delete' => $delay_delete/60 > 1 ? ceil($delay_delete/60).' min' : $delay_delete.' sec') : $pending;
                 
@@ -810,16 +819,16 @@ class IndexController extends pm_Controller_Action
                     $show_others_alert = FALSE;
                 }
                 // Monitor exists
-                elseif(in_array($this->mapping_table[$guid]['ur_id'], $monitor_ids)) {
-                    $ur_status = '<span data-toggle="tooltip" data-html="true" title="'.$this->_tooltip_content_monitor($monitors[$this->mapping_table[$guid]['ur_id']]).'"><i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizeURid', [ 'ur_id' => $this->mapping_table[$guid]['ur_id'] ]).'<span>';
+                elseif(in_array($this->mapping_table[$guid]->ur_id, $monitor_ids)) {
+                    $ur_status = '<span data-toggle="tooltip" data-html="true" title="'.$this->_tooltip_content_monitor($monitors[$this->mapping_table[$guid]->ur_id]).'"><i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizeURid', [ 'ur_id' => $this->mapping_table[$guid]->ur_id ]).'<span>';
                     
-                    $actions['updatemonitor'] = '<a href="'.$this->_helper->url('updateMonitor', 'index').'?guid='.$guid.'&ur_id='.$this->mapping_table[$guid]['ur_id'].'"><i class="fa fa-refresh text-info"></i> '.pm_Locale::lmsg('synchronizeUpdateMonitor').'</a>';
-                    $actions['monitor'] = '<a href="'.$this->_helper->url('deleteMonitor', 'index').'?guid='.$guid.'&ur_id='.$this->mapping_table[$guid]['ur_id'].'" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeDeleteMonitorMessage', [ 'ur_id' => $this->mapping_table[$guid]['ur_id'] ]).'\')) { return false; }"><i class="fa fa-trash text-info"></i> '.pm_Locale::lmsg('synchronizeDeleteMonitor').'</a>';
+                    $actions['updatemonitor'] = '<a href="'.$this->_helper->url('updateMonitor', 'index').'?guid='.$guid.'&ur_id='.$this->mapping_table[$guid]->ur_id.'"><i class="fa fa-refresh text-info"></i> '.pm_Locale::lmsg('synchronizeUpdateMonitor').'</a>';
+                    $actions['monitor'] = '<a href="'.$this->_helper->url('deleteMonitor', 'index').'?guid='.$guid.'&ur_id='.$this->mapping_table[$guid]->ur_id.'" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeDeleteMonitorMessage', [ 'ur_id' => $this->mapping_table[$guid]->ur_id ]).'\')) { return false; }"><i class="fa fa-trash text-info"></i> '.pm_Locale::lmsg('synchronizeDeleteMonitor').'</a>';
                     $show_others_alert = FALSE;
                 }
                 // Monitor does not exist
                 else {
-                    $ur_status = '<i class="fa fa-ban text-danger"></i> '.pm_Locale::lmsg('synchronizeMonitorNotFound', [ 'ur_id' => $this->mapping_table[$guid]['ur_id'] ]);
+                    $ur_status = '<i class="fa fa-ban text-danger"></i> '.pm_Locale::lmsg('synchronizeMonitorNotFound', [ 'ur_id' => $this->mapping_table[$guid]->ur_id ]);
                     $actions['monitor'] = '<a href="'.$this->_helper->url('createMonitor', 'index').'?guid='.$guid.'"><i class="fa fa-plus text-info"></i> '.pm_Locale::lmsg('synchronizeCreateMonitor').'</a>';
                 }
             }
@@ -843,7 +852,7 @@ class IndexController extends pm_Controller_Action
                     }, $monitor_urls));
                 }
                 // Can be remapped
-                elseif(!in_array($this->mapping_table[$guid]['ur_id'], $monitor_ids)) {
+                elseif(!in_array($this->mapping_table[$guid]->ur_id, $monitor_ids)) {
                     $actions['remap'] = implode('</li><li>', array_map(function($monitor_id) use ($guid, $monitors, $pm_Domain) {
                         return '<a href="'.$this->_helper->url('map', 'index').'?guid='.$guid.'&ur_id='.$monitor_id.'" class="list-group-item" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeRemapMessage', [ 'domain' => $pm_Domain->getName() ]).'\')) { return false; }" data-toggle="tooltip" data-html="true" data-placement="left" title="'.$this->_tooltip_content_monitor($monitors[$monitor_id]).'"><i class="fa fa-random text-info"></i> '.pm_Locale::lmsg('synchronizeRemapToMonitor').' '.$monitor_id.'</a>';
                     }, $monitor_urls));
@@ -872,26 +881,26 @@ class IndexController extends pm_Controller_Action
 
                 // Uptime Robot getMonitors list is not reliable when monitor was just created/deleted
                 // Pending status
-                $delay_create = $monitor['create_datetime'] + self::UR_DELAY - time();
-                $delay_delete = $monitor['delete_datetime'] + self::UR_DELAY - time();
+                $delay_create = $monitor->create_datetime + self::UR_DELAY - time();
+                $delay_delete = $monitor->delete_datetime + self::UR_DELAY - time();
                 $pending = $delay_create > 0 ? array('Create' => $delay_create/60 > 1 ? ceil($delay_create/60).' min' : $delay_create.' sec') : FALSE;
                 $pending = $delay_delete > 0 ? array('Delete' => $delay_delete/60 > 1 ? ceil($delay_delete/60).' min' : $delay_delete.' sec') : $pending;
 
                 if($pending) {
                     $ur_status = '<i class="fa fa-circle-o-notch fa-spin text-info"></i> '.pm_Locale::lmsg('synchronizePending'.key($pending), [ 'delay' => reset($pending) ]);
                 }
-                elseif(in_array($monitor['ur_id'], $monitor_ids)) {
-                    $ur_status = '<span data-toggle="tooltip" data-html="true" title="'.$this->_tooltip_content_monitor($monitors[$monitor['ur_id']]).'"><i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizeMonitorStillExists', [ 'ur_id' => $monitor['ur_id'] ]).'</span>';
-                    $actions['monitor'] = '<a href="'.$this->_helper->url('deleteMonitor', 'index').'?guid='.$guid.'&ur_id='.$monitor['ur_id'].'" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeDeleteMonitorMessage').'\')) { return false; }"><i class="fa fa-trash text-info"></i> '.pm_Locale::lmsg('synchronizeDeleteMonitor').'</a>';
+                elseif(in_array($monitor->ur_id, $monitor_ids)) {
+                    $ur_status = '<span data-toggle="tooltip" data-html="true" title="'.$this->_tooltip_content_monitor($monitors[$monitor->ur_id]).'"><i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizeMonitorStillExists', [ 'ur_id' => $monitor->ur_id ]).'</span>';
+                    $actions['monitor'] = '<a href="'.$this->_helper->url('deleteMonitor', 'index').'?guid='.$guid.'&ur_id='.$monitor->ur_id.'" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeDeleteMonitorMessage').'\')) { return false; }"><i class="fa fa-trash text-info"></i> '.pm_Locale::lmsg('synchronizeDeleteMonitor').'</a>';
                 }
                 else {
-                    $ur_status = '<i class="fa fa-ban text-danger"></i> '.pm_Locale::lmsg('synchronizeMonitorNotFound', [ 'ur_id' => $monitor['ur_id'] ]);
+                    $ur_status = '<i class="fa fa-ban text-danger"></i> '.pm_Locale::lmsg('synchronizeMonitorNotFound', [ 'ur_id' => $monitor->ur_id ]);
                 }
 
                 $data[$guid] = array(
                     'id' => '#',
-                    'name' => $monitor['url'],
-                    'ip' => gethostbyname(trim($monitor['url'])),
+                    'name' => $monitor->url,
+                    'ip' => gethostbyname(trim($monitor->url)),
                     'plesk_status' => '<i class="fa fa-ban text-danger"></i> '.pm_Locale::lmsg('synchronizeNoMoreInPlesk'),
                     'mapping_status' => $mapping_status,
                     'ur_status' => $ur_status,
@@ -915,7 +924,6 @@ class IndexController extends pm_Controller_Action
             <div id="gen-id-'.$guid.'" class="popup-box popup-menu dropdown-menu collapsed"><table class="popup-wrapper" cellspacing="0"><tbody><tr><td class="popup-container"><div class="popup-content"><div class="popup-content-area"><ul><li>'.implode('</li><li>', $line['actions']).'</li></div></div></td></tr></tbody></table></div></div>';
         }
         unset($line);
-*/
 
         $list = new pm_View_List_Simple($this->view, $this->_request);
         $list->setData($data);

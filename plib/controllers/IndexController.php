@@ -29,6 +29,7 @@ class IndexController extends pm_Controller_Action
         $this->view->headScript()->appendFile(pm_Context::getBaseUrl().'/js/jquery.global.js'); // Loads jQuery and Bootstrap JS
 
         $this->api_key = pm_Settings::get('apikey', '');
+        $this->timezone = pm_Settings::get('timezone', '');
 
         $this->view->pageTitle = 'Uptime Robot';
         $this->view->tabs = [
@@ -88,6 +89,14 @@ class IndexController extends pm_Controller_Action
             'required' => true,
             'value'    => $this->api_key
         ]);
+        $tzlist = DateTimeZone::listIdentifiers(DateTimeZone::ALL);
+        $this->view->apikeyForm->addElement(
+            'select', 'timezone', [
+            'label'    => pm_Locale::lmsg('setupTimezoneInputLabel'),
+            'required' => true,
+            'value'    => !empty($this->timezone) ? $this->timezone : date_default_timezone_get(),
+            'multiOptions' => array_combine($tzlist, $tzlist),
+        ]);
         $this->view->apikeyForm->addControlButtons(
             [
                 'cancelHidden' => true,
@@ -97,6 +106,8 @@ class IndexController extends pm_Controller_Action
         if ($this->getRequest()->isPost() && $this->view->apikeyForm->isValid($this->getRequest()->getPost())) {
             $api_key = $this->view->apikeyForm->getValue('apikey');
             pm_Settings::set('apikey', trim($api_key));
+            $timezone = $this->view->apikeyForm->getValue('timezone');
+            pm_Settings::set('timezone', trim($timezone));
 
             if ($api_key) {
                 $account = Modules_UptimeRobot_API::fetchUptimeRobotAccount($api_key);
@@ -128,6 +139,14 @@ class IndexController extends pm_Controller_Action
             'label' => 'API-Key',
             'value' => $this->api_key
         ]);
+        $tzlist = DateTimeZone::listIdentifiers(DateTimeZone::ALL);
+        $this->view->settingsForm->addElement(
+            'select', 'timezone', [
+            'label'    => pm_Locale::lmsg('setupTimezoneInputLabel'),
+            'required' => true,
+            'value'    => !empty($this->timezone) ? $this->timezone : date_default_timezone_get(),
+            'multiOptions' => array_combine($tzlist, $tzlist),
+        ]);
         $this->view->settingsForm->addControlButtons(
             [
                 'cancelHidden' => true,
@@ -137,6 +156,8 @@ class IndexController extends pm_Controller_Action
         if ($this->getRequest()->isPost() && $this->view->settingsForm->isValid($this->getRequest()->getPost())) {
             $api_key = $this->view->settingsForm->getValue('apikey');
             pm_Settings::set('apikey', trim($api_key));
+            $timezone = $this->view->settingsForm->getValue('timezone');
+            pm_Settings::set('timezone', trim($timezone));
 
             if ($api_key) {
                 $account = Modules_UptimeRobot_API::fetchUptimeRobotAccount($api_key);
@@ -790,8 +811,9 @@ class IndexController extends pm_Controller_Action
             $monitors_urls[preg_replace('#^http(?:s)?://(.*)/?$#U', '$1', $monitor->url)][] = $monitor->id;
         }
 
-        $this->_status->addMessage('info', print_r($this->mapping_table, true));
-        //$this->_status->addMessage('info', count($monitors));
+        //$this->_status->addMessage('info', print_r($this->mapping_table, true));
+        $this->_status->addMessage('info', date_default_timezone_get());
+        $this->_status->addMessage('info', print_r(Modules_UptimeRobot_API::fetchUptimeRobotAccount($this->api_key), true));
 
         $data = array();
         foreach(pm_Domain::getAllDomains() as $id=>$pm_Domain) {

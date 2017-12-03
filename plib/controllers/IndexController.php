@@ -1133,7 +1133,8 @@ class IndexController extends pm_Controller_Action
             <strong>Name</strong> '.htmlentities($monitor->friendly_name).'<br />
             <strong>URL</strong> '.htmlentities($monitor->url).'<br />
             <strong>Created on</strong> '.date('d/m/Y', $monitor->create_datetime).'<br />
-            <strong>Status</strong> '.($monitor->status ? pm_Locale::lmsg('synchronizeMonitorRunning') : pm_Locale::lmsg('synchronizeMonitorPaused')).'
+            <strong>Status</strong> '.($monitor->status ? pm_Locale::lmsg('synchronizeMonitorRunning') : pm_Locale::lmsg('synchronizeMonitorPaused')).'<br />
+            <strong>Interval</strong> '.$monitor->interval.'s
         </div>';
 
         return str_replace('"', '\'', str_replace("\n", '', $content)); // because it's used in html attribute

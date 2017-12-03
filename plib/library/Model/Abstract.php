@@ -29,18 +29,21 @@ abstract class Modules_UptimeRobot_Model_Abstract
                 $this->_status = array('error' => array('setupUnableToCreateDatabase', [ 'dbpath' => UR_DB_PATH, 'errormsg' => $e->getMessage() ]));
             }
         }
-        elseif(!is_writable(UR_DB_PATH)) {
+        
+        if(!is_writable(UR_DB_PATH)) {
             $this->_status = array('error' => array('setupDatabaseNotWritable', [ 'dbpath' => UR_DB_PATH ]));
+            $this->error = TRUE;
         }
+        else {
+            $this->_dbh = new PDO('sqlite:' . UR_DB_PATH);
 
-        $this->_dbh = new PDO('sqlite:' . UR_DB_PATH);
-
-        // Create mapping table
-        $sth = $this->_dbh->prepare('CREATE TABLE IF NOT EXISTS mappingtable (id integer primary key, guid VARCHAR(30), ur_id VARCHAR(30), url VARCHAR(255), create_datetime INT(11), delete_datetime INT(11) default 0)');
-        $res = $sth->execute();
-        if(!$res) {
-            $error = $sth->errorInfo();
-            $this->_status = array('error' => array('setupUnableToCreateMappingTable', [ 'errormsg' => "code='{$error[0]}', message='{$error[2]}'" ]));
+            // Create mapping table
+            $sth = $this->_dbh->prepare('CREATE TABLE IF NOT EXISTS mappingtable (id integer primary key, guid VARCHAR(30), ur_id VARCHAR(30), url VARCHAR(255), create_datetime INT(11), delete_datetime INT(11) default 0)');
+            $res = $sth->execute();
+            if(!$res) {
+                $error = $sth->errorInfo();
+                $this->_status = array('error' => array('setupUnableToCreateMappingTable', [ 'errormsg' => "code='{$error[0]}', message='{$error[2]}'" ]));
+            }
         }
     }
 }

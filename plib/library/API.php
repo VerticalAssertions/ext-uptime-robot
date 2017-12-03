@@ -132,7 +132,7 @@ class Modules_UptimeRobot_API
     {
         $params = array(
             'id' => $id,
-            'url' => 'http'.($options['ssl'] ? 's' : '').'://'.$domain,
+            'url' => 'http'.($options['ssl'] ? 's' : '').'://'.($options['www'] ? 'www.' : '').$domain,
             'type' => 1,
             'friendly_name' => !empty($options['friendly_name']) ? $options['friendly_name'] : $domain,
             );

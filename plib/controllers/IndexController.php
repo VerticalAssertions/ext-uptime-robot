@@ -438,9 +438,14 @@ class IndexController extends pm_Controller_Action
                 }
             }
 
+            // Include www or not
+            $request = '<site><get><filter><guid>'.$guid.'</guid></filter><dataset><prefs/></dataset></get></site>';
+            $www = pm_ApiRpc::getService()->call($request)->site->get->result->data->prefs->www;
+
             $json = Modules_UptimeRobot_API::editUptimeMonitor($this->api_key, $pm_Domain->getName(), $ur_id, array(
                 'friendly_name' => $pm_Domain->getDisplayName(),
                 'ssl' => $ssl[0],
+                'www' => $www,
                 )); // {"stat":"ok","monitor":{"id":777712827}}
 
             if($json && $json->stat == 'ok' && !empty($json->monitor->id)) {
@@ -814,7 +819,7 @@ class IndexController extends pm_Controller_Action
             $monitors_urls[preg_replace('#^http(?:s)?://(.*)/?$#U', '$1', $monitor->url)][] = $monitor->id;
         }
 
-        $this->_status->addMessage('info', print_r($this->mapping_table, true));
+        //$this->_status->addMessage('info', print_r($this->mapping_table, true));
         //$this->_status->addMessage('info', date_default_timezone_get());
         //$this->_status->addMessage('info', print_r(Modules_UptimeRobot_API::fetchUptimeRobotAccount($this->api_key), true));
 

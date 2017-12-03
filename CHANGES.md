@@ -4,6 +4,7 @@
 * Added timezone definition: declare to the extension the timezone you use in your UR settings to make create and delete timers effective.
 * You can now define the default alert contact in settings. This contact will be used for new monitors and updated monitors.
 * You can now start or pause an existing monitor.
+* You can now define default interval for new monitors and updated monitors.
 
 # 1.1.3
 

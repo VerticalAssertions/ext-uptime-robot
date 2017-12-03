@@ -121,6 +121,7 @@ class Modules_UptimeRobot_API
             'type' => 1,
             'friendly_name' => !empty($options['friendly_name']) ? $options['friendly_name'] : $domain,
             'alert_contacts' => $options['alert_contacts'],
+            'interval' => $options['interval'],
             );
 
         $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/newMonitor', $params);
@@ -149,6 +150,7 @@ class Modules_UptimeRobot_API
             'type' => 1,
             'friendly_name' => !empty($options['friendly_name']) ? $options['friendly_name'] : $domain,
             'alert_contacts' => $options['alert_contacts'],
+            'interval' => $options['interval'],
             );
 
         $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/editMonitor', $params);

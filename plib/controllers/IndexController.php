@@ -49,7 +49,7 @@ class IndexController extends pm_Controller_Action
         $this->api_key = pm_Settings::get('apikey', '');
         $this->timezone = pm_Settings::get('timezone', '');
         date_default_timezone_set($this->timezone);
-
+        $this->defaultInterval = pm_Settings::get('defaultInterval', 300);
         $this->defaultAlertContact = pm_Settings::get('defaultAlertContact', '');
         if(empty($this->defaultAlertContact)) {
             $this->_status->addMessage('warning', pm_Locale::lmsg('noDefaultAlertContact',  [ 'settingsurl' => $this->_helper->url('settings', 'index') ]), TRUE);
@@ -183,6 +183,14 @@ class IndexController extends pm_Controller_Action
             'value'    => $this->defaultAlertContact,
             'multiOptions' => $contacts,
         ]);
+
+        $this->view->settingsForm->addElement(
+            'text', 'defaultInterval', [
+            'label' => pm_Locale::lmsg('setupDefaultInterval'),
+            'required' => true,
+            'value' => $this->defaultInterval,
+        ]);
+
         $this->view->settingsForm->addControlButtons(
             [
                 'cancelHidden' => true,
@@ -196,6 +204,8 @@ class IndexController extends pm_Controller_Action
             pm_Settings::set('timezone', trim($timezone));
             $defaultAlertContact = $this->view->settingsForm->getValue('defaultAlertContact');
             pm_Settings::set('defaultAlertContact', trim($defaultAlertContact));
+            $defaultInterval = $this->view->settingsForm->getValue('defaultInterval');
+            pm_Settings::set('defaultInterval', trim($defaultInterval));
 
             if($api_key) {
                 $account = Modules_UptimeRobot_API::fetchUptimeRobotAccount($api_key);
@@ -423,6 +433,7 @@ class IndexController extends pm_Controller_Action
                 'ssl' => $ssl[0],
                 'www' => $www,
                 'alert_contacts' => $this->defaultAlertContact,
+                'interval' => $this->defaultInterval,
                 )); // { "stat": "ok", "monitor": { "id": 777810874, "status": 1 }}
 
             if($json && $json->stat == 'ok' && !empty($json->monitor->id)) {
@@ -487,13 +498,14 @@ class IndexController extends pm_Controller_Action
                 'ssl' => $ssl[0],
                 'www' => $www,
                 'alert_contacts' => $this->defaultAlertContact,
+                'interval' => $this->defaultInterval,
                 )); // {"stat":"ok","monitor":{"id":777712827}}
 
             if($json && $json->stat == 'ok' && !empty($json->monitor->id)) {
                 $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeUpdateMonitorDone', [ 'domain' => $pm_Domain->getName(), 'ur_id' => $json->monitor->id ]), TRUE);
             }
             elseif($json) {
-                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeUpdateMonitorNOK', [ 'domain' => $pm_Domain->getName(), 'json' => json_encode($json) ]), TRUE);
+                $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeUpdateMonitorNOK', [ 'domain' => $pm_Domain->getName(), 'ur_id' => $json->monitor->id, 'json' => json_encode($json) ]), TRUE);
             }
             else {
                 $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeNoResponse'), TRUE);

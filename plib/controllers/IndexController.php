@@ -904,12 +904,10 @@ class IndexController extends pm_Controller_Action
             //$this->_status->addMessage('info', '<pre>'.print_r($monitor, true).'</pre>', TRUE);
         }
 
-        /*
-        $this->_status->addMessage('info', print_r($this->mapping_table, true), TRUE);
-        $this->_status->addMessage('info', print_r(Modules_UptimeRobot_API::fetchUptimeRobotAccount($this->api_key), true), TRUE);
-        $json = Modules_UptimeRobot_API::fetchAlertContacts($this->api_key);
-        $this->_status->addMessage('info', '<pre>'.print_r($json, true).'</pre>', TRUE);
-        */
+        //$this->_status->addMessage('info', '<pre>'.print_r($this->mapping_table, true).'</pre>', TRUE);
+        //$this->_status->addMessage('info', print_r(Modules_UptimeRobot_API::fetchUptimeRobotAccount($this->api_key), true), TRUE);
+        //$json = Modules_UptimeRobot_API::fetchAlertContacts($this->api_key);
+        //$this->_status->addMessage('info', '<pre>'.print_r($json, true).'</pre>', TRUE);
 
         $data = array();
         foreach(pm_Domain::getAllDomains() as $id=>$pm_Domain) {

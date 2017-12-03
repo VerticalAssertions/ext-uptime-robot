@@ -1,3 +1,10 @@
+# 1.1.4
+
+* The mapping data is now stored in a SQLite database. Each UR api key has its own database : changing api key will not overwrite your mapping table.
+* Added timezone definition: declare to the extension the timezone you use in your UR settings to make create and delete timers effective.
+* You can now define the default alert contact in settings. This contact will be used for new monitors and updated monitors.
+* You can now start or pause an existing monitor.
+
 # 1.1.3
 
 * Added an action to update an existing mapped monitor with domain data

@@ -10,6 +10,7 @@ $messages = [
     'setupApiKeySaved'                  => 'API Key has been saved successfully!',
     'setupApiKeyInvalid'                => 'Invalid API Key: %%error%%.',
     'setupTimezoneInputLabel'           => 'Timezone set in Uptime Robot account',
+    'setupDefaultAlertContact'          => 'Default alert contact',
     'setupNewTo'                        => 'I am new to Uptime Robot',
     'setupNewToDescription'             => 'Click the link below to create a new Uptime Robot account on the Uptime Robot website. This page will open in a new tab. After signing up, click the button on the right-hand side of this page.',
     'setupCreateAccount'                => 'Create a new account',

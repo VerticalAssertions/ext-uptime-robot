@@ -8,13 +8,11 @@ abstract class Modules_UptimeRobot_Model_Abstract
 {
     protected $_dbh = null;
 
-    
-    const UR_DB_FILE = 'uptimerobot.db';
-
-    public function __construct()
+    public function __construct($api_key = '')
     {
-    	define('UR_DATA_PATH', pm_Context::getVarDir()); // /opt/psa/var/modules/uptime-robot/;
-    	define('UR_DB_PATH', pm_Context::getVarDir() . DIRECTORY_SEPARATOR . self::UR_DB_FILE);
+    	define('UR_DATA_PATH', pm_Context::getVarDir()); // /opt/psa/var/modules/uptime-robot;
+    	// allow multiple databases for multiple successive UR api keys loaded
+    	define('UR_DB_PATH', UR_DATA_PATH . DIRECTORY_SEPARATOR . 'uptimerobot_'.$api_key.'.db');
 
     	// Create Database if does not exists
     	if(!is_writable(UR_DATA_PATH)) {

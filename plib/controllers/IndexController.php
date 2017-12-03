@@ -7,6 +7,7 @@
 class IndexController extends pm_Controller_Action
 {
     protected $_accessLevel = ['admin'];
+    protected $_requestMapper = null;
     private $api_key;
     const DEFAULT_TIMESPAN = 30;
     const UR_DELAY = 120;
@@ -30,6 +31,7 @@ class IndexController extends pm_Controller_Action
 
         $this->api_key = pm_Settings::get('apikey', '');
         $this->timezone = pm_Settings::get('timezone', '');
+        date_default_timezone_set($this->timezone);
 
         $this->view->pageTitle = 'Uptime Robot';
         $this->view->tabs = [
@@ -48,26 +50,28 @@ class IndexController extends pm_Controller_Action
         ];
 
         // Database features
-        $this->_requestMapper = new Modules_UptimeRobot_Model_RequestMapper();
+        if($this->api_key) {
+            $this->_requestMapper = new Modules_UptimeRobot_Model_RequestMapper($this->api_key);
 
-        if(isset($this->_requestMapper->_status) && is_array($this->_requestMapper->_status)) {
-            $this->_status->addMessage(key($this->_requestMapper->_status), pm_Locale::lmsg(reset($this->_requestMapper->_status)[0], reset($this->_requestMapper->_status)[1]));
+            // Error relay at database creation
+            if(isset($this->_requestMapper->_status) && is_array($this->_requestMapper->_status)) {
+                $this->_status->addMessage(key($this->_requestMapper->_status), pm_Locale::lmsg(reset($this->_requestMapper->_status)[0], reset($this->_requestMapper->_status)[1]));
+            }
+
+            // Local mapping table between domains and monitors
+            $this->mapping_table = $this->_requestMapper->getMappingTable();
         }
-
-        // Local mapping table between domains and monitors
-        $this->mapping_table = $this->_requestMapper->getMappingTable();
     }
-    protected $_requestMapper = null;
 
     /**
      * Index Action
      */
     public function indexAction()
     {
-        if ($this->api_key) {
+        if($this->api_key) {
             $account = Modules_UptimeRobot_API::fetchUptimeRobotAccount($this->api_key);
 
-            if ($account->stat == 'ok') {
+            if($account->stat == 'ok') {
                 $this->_forward('overview');
 
                 return;
@@ -299,14 +303,13 @@ class IndexController extends pm_Controller_Action
             // Get UR monitor data
             $monitors = Modules_UptimeRobot_API::fetchUptimeMonitors($this->api_key, array($ur_id));
 
-            $this->mapping_table[$guid] = array(
-                'id' => !empty($this->mapping_table[$guid]) ? $this->mapping_table[$guid]->id : NULL,
-                'guid' => $guid,
-                'ur_id' => $ur_id,
-                'url' => $pm_Domain->getName(),
-                'create_datetime' => $monitors[0]->create_datetime,
-                'delete_datetime' => 0,
-                );
+            $this->mapping_table[$guid] = new stdClass;
+            $this->mapping_table[$guid]->id = !empty($this->mapping_table[$guid]) ? $this->mapping_table[$guid]->id : NULL;
+            $this->mapping_table[$guid]->guid = $guid;
+            $this->mapping_table[$guid]->ur_id = $ur_id;
+            $this->mapping_table[$guid]->url = $pm_Domain->getName();
+            $this->mapping_table[$guid]->create_datetime = $monitors[0]->create_datetime + (date('I')-1)*3600; // Uptime Robot seems to ignore DST
+            $this->mapping_table[$guid]->delete_datetime = 0;
 
             // Update mapping table
             if($db_error = $this->_requestMapper->saveMapping($this->mapping_table[$guid])) {
@@ -383,12 +386,12 @@ class IndexController extends pm_Controller_Action
                 )); // { "stat": "ok", "monitor": { "id": 777810874, "status": 1 }}
 
             if($json && $json->stat == 'ok' && !empty($json->monitor->id)) {
-                $this->mapping_table[$guid] = array(
-                    'ur_id' => $json->monitor->id,
-                    'url' => $pm_Domain->getName(),
-                    'create_datetime' => time(),
-                    'delete_datetime' => 0,
-                    );
+                $this->mapping_table[$guid] = new stdClass;
+                $this->mapping_table[$guid]->guid = $guid;
+                $this->mapping_table[$guid]->ur_id = $json->monitor->id;
+                $this->mapping_table[$guid]->url = $pm_Domain->getName();
+                $this->mapping_table[$guid]->create_datetime = time();
+                $this->mapping_table[$guid]->delete_datetime = 0;
 
                 // Update mapping table
                 if($db_error = $this->_requestMapper->saveMapping($this->mapping_table[$guid])) {
@@ -811,9 +814,9 @@ class IndexController extends pm_Controller_Action
             $monitors_urls[preg_replace('#^http(?:s)?://(.*)/?$#U', '$1', $monitor->url)][] = $monitor->id;
         }
 
-        //$this->_status->addMessage('info', print_r($this->mapping_table, true));
-        $this->_status->addMessage('info', date_default_timezone_get());
-        $this->_status->addMessage('info', print_r(Modules_UptimeRobot_API::fetchUptimeRobotAccount($this->api_key), true));
+        $this->_status->addMessage('info', print_r($this->mapping_table, true));
+        //$this->_status->addMessage('info', date_default_timezone_get());
+        //$this->_status->addMessage('info', print_r(Modules_UptimeRobot_API::fetchUptimeRobotAccount($this->api_key), true));
 
         $data = array();
         foreach(pm_Domain::getAllDomains() as $id=>$pm_Domain) {

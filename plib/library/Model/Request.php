@@ -10,7 +10,6 @@ class Modules_UptimeRobot_Model_Request extends Modules_UptimeRobot_Model_Abstra
     protected $_data = array(
         'id' => null,
         'guid' => null,
-        'state' => null,
         'url' => null,
         'create_datetime' => null,
         'delete_datetime' => null,

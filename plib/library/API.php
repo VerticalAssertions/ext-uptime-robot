@@ -117,9 +117,10 @@ class Modules_UptimeRobot_API
     public static function createUptimeMonitor($apikey, $domain, $options)
     {
         $params = array(
-            'url' => 'http'.($options['ssl'] ? 's' : '').'://'.$domain,
+            'url' => 'http'.($options['ssl'] ? 's' : '').'://'.($options['www'] ? 'www.' : '').$domain,
             'type' => 1,
             'friendly_name' => !empty($options['friendly_name']) ? $options['friendly_name'] : $domain,
+            'alert_contacts' => $options['alert_contacts'],
             );
 
         $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/newMonitor', $params);
@@ -147,6 +148,7 @@ class Modules_UptimeRobot_API
             'url' => 'http'.($options['ssl'] ? 's' : '').'://'.($options['www'] ? 'www.' : '').$domain,
             'type' => 1,
             'friendly_name' => !empty($options['friendly_name']) ? $options['friendly_name'] : $domain,
+            'alert_contacts' => $options['alert_contacts'],
             );
 
         $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/editMonitor', $params);

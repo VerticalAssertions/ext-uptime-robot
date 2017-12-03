@@ -57,6 +57,18 @@ class Modules_UptimeRobot_API
     }
 
     /**
+     * Fetches alert contacts
+     *
+     * @param string $apikey
+     *
+     * @return mixed|stdClass
+     */
+    public static function fetchAlertContacts($apikey)
+    {
+        return self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/getAlertContacts');
+    }
+
+    /**
      * Fetches all monitors with logs for the transmitted API key
      *
      * @param string $apikey

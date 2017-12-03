@@ -11,6 +11,23 @@ class IndexController extends pm_Controller_Action
     private $api_key;
     const DEFAULT_TIMESPAN = 30;
     const UR_DELAY = 120;
+    const UR_CONTACT_STATUS = array(
+        0 => 'not activated',
+        1 => 'paused',
+        2 => 'active',
+        );
+    const UR_CONTACT_TYPES = array( // @see https://uptimerobot.com/api
+        1 => 'SMS',
+        2 => 'E-mail',
+        3 => 'Twitter DM',
+        4 => 'Boxcar',
+        5 => 'Web-Hook',
+        6 => 'Pushbullet',
+        7 => 'Zapier',
+        9 => 'Pushover',
+        10 => 'HipChat',
+        11 => 'Slack',
+        );
 
     /**
      * Initialize controller
@@ -35,7 +52,7 @@ class IndexController extends pm_Controller_Action
 
         $this->defaultAlertContact = pm_Settings::get('defaultAlertContact', '');
         if(empty($this->defaultAlertContact)) {
-            $this->_status->addMessage('warning', pm_Locale::lmsg('noDefaultAlertContact',  [ 'settingsurl' => $this->_helper->url('action', 'settings') ]), TRUE);
+            $this->_status->addMessage('warning', pm_Locale::lmsg('noDefaultAlertContact',  [ 'settingsurl' => $this->_helper->url('settings', 'index') ]), TRUE);
         }
 
         $this->view->pageTitle = 'Uptime Robot';
@@ -146,8 +163,10 @@ class IndexController extends pm_Controller_Action
         $this->view->settingsForm->addElement(
             'text', 'apikey', [
             'label' => 'API-Key',
-            'value' => $this->api_key
+            'required' => true,
+            'value' => $this->api_key,
         ]);
+
         $tzlist = DateTimeZone::listIdentifiers(DateTimeZone::ALL);
         $this->view->settingsForm->addElement(
             'select', 'timezone', [
@@ -155,6 +174,19 @@ class IndexController extends pm_Controller_Action
             'required' => true,
             'value'    => !empty($this->timezone) ? $this->timezone : date_default_timezone_get(),
             'multiOptions' => array_combine($tzlist, $tzlist),
+        ]);
+
+        $json = Modules_UptimeRobot_API::fetchAlertContacts($this->api_key);
+        $contacts = array();
+        foreach($json->alert_contacts as $oContact) {
+            $contacts[$oContact->id] = $oContact->friendly_name.' ('.self::UR_CONTACT_TYPES[$oContact->type].' '.$oContact->value.' - '.self::UR_CONTACT_STATUS[$oContact->status].')';
+        }
+        $this->view->settingsForm->addElement(
+            'select', 'defaultAlertContact', [
+            'label'    => pm_Locale::lmsg('setupDefaultAlertContact'),
+            'required' => true,
+            'value'    => $this->defaultAlertContact,
+            'multiOptions' => $contacts,
         ]);
         $this->view->settingsForm->addControlButtons(
             [
@@ -167,6 +199,8 @@ class IndexController extends pm_Controller_Action
             pm_Settings::set('apikey', trim($api_key));
             $timezone = $this->view->settingsForm->getValue('timezone');
             pm_Settings::set('timezone', trim($timezone));
+            $timezone = $this->view->settingsForm->getValue('defaultAlertContact');
+            pm_Settings::set('defaultAlertContact', trim($defaultAlertContact));
 
             if ($api_key) {
                 $account = Modules_UptimeRobot_API::fetchUptimeRobotAccount($api_key);

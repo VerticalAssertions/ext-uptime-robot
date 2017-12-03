@@ -4,6 +4,7 @@
 $messages = [
     'UptimeRobotButtonTitle'            => 'Uptime Robot statistics',
     'UptimeRobotButtonDescription'      => 'Shows list of monitors, status, average uptime. You may also create and delete monitors for local domains and subdomains',
+    'noDefaultAlertContact'             => 'No default alert contact has been set: new monitors won\'t warn anyone. You can set it on <a href="%%settingsurl%%">extension settings</a>',
     'setupApiKeyInputLabel'             => 'Main API Key',
     'setupApiKeySaveButton'             => 'Save',
     'setupApiKeySaved'                  => 'API Key has been saved successfully!',
@@ -15,8 +16,8 @@ $messages = [
     'setupHaveAccount'                  => 'I have an Uptime Robot account',
     'setupHaveAccountDescription'       => 'Please insert your Uptime Robot "Main API Key" into the following form. The API key can be found on the <a href="https://uptimerobot.com/dashboard.php#mySettings" target="_blank">Uptime Robot settings page</a> at the bottom, after you logged in to your Uptime Robot account.',
     'setupMappingTable'                 => 'Mapping table is empty: no monitor for this server.',
-    'setupDatadirNotWritable'           => 'Data directory <em>%%datapath%%</em> should be writable for psaadm:psaadm',
-    'setupDatabaseNotWritable'          => 'Database file <em>%%dbpath%%</em> should be writable for psaadm:psaadm',
+    'setupDatadirNotWritable'           => 'Data directory <em>%%datapath%%</em> should be writable for <em>psaadm:psaadm</em>',
+    'setupDatabaseNotWritable'          => 'Database file <em>%%dbpath%%</em> should be writable for <em>psaadm:psaadm</em>',
     'setupUnableToCreateDatabase'       => 'Unable to create database file <em>%%dbpath%%</em> with error: %%errormsg%%',
     'setupDatabaseCreated'              => 'Uptime Robot database created',
     'setupUnableToCreateMappingTable'   => 'Unable to create mapping table with error: %%errormsg%%',

@@ -507,6 +507,37 @@ class IndexController extends pm_Controller_Action
     }
 
     /**
+     * Disables monitor
+     * Then redirects to Synchronize tab
+     */
+    public function statusmonitorAction()
+    {
+        $guid = $this->getRequest()->getParam('guid');
+        $ur_id = $this->getRequest()->getParam('ur_id');
+        $status = $this->getRequest()->getParam('status');
+
+        if(!empty($guid) && preg_match('#^[a-f0-9-]+$#', $guid)
+        && !empty($ur_id) && preg_match('#^[0-9]+$#', $ur_id)) {
+            $json = Modules_UptimeRobot_API::statusUptimeMonitor($this->api_key, $ur_id, $status); // { "stat":"ok", "monitor":{ "id":777712827 }}
+
+            if($json && $json->stat == 'ok') {
+                $this->_status->addMessage('info', pm_Locale::lmsg('synchronize'.($status ? 'Start' : 'Pause').'MonitorDone', [ 'domain' => $this->mapping_table[$guid]->url, 'ur_id' => $this->mapping_table[$guid]->ur_id ]), TRUE);
+            }
+            elseif($json) {
+                $this->_status->addMessage('error', pm_Locale::lmsg('synchronize'.($status ? 'Start' : 'Pause').'MonitorNOK', [ 'ur_id' => $ur_id, 'json' => json_encode($json) ]), TRUE);
+            }
+            else {
+                $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeNoResponse'), TRUE);
+            }
+        }
+        else {
+            $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeInvalidRequest'), TRUE);
+        }
+        
+        $this->_redirect('index/synchronize');
+    }
+
+    /**
      * Removes an Uptime Robot monitor and updates local mapping table
      * Then redirects to Synchronize tab
      */
@@ -858,13 +889,15 @@ class IndexController extends pm_Controller_Action
         foreach($monitors as $monitor) {
             $monitor_ids[] = $monitor->id;
             $monitors_urls[preg_replace('#^http(?:s)?://(.*)/?$#U', '$1', $monitor->url)][] = $monitor->id;
+            //$this->_status->addMessage('info', '<pre>'.print_r($monitor, true).'</pre>', TRUE);
         }
 
-        //$this->_status->addMessage('info', print_r($this->mapping_table, true), TRUE);
-        //$this->_status->addMessage('info', print_r(Modules_UptimeRobot_API::fetchUptimeRobotAccount($this->api_key), true), TRUE);
-        
+        /*
+        $this->_status->addMessage('info', print_r($this->mapping_table, true), TRUE);
+        $this->_status->addMessage('info', print_r(Modules_UptimeRobot_API::fetchUptimeRobotAccount($this->api_key), true), TRUE);
         $json = Modules_UptimeRobot_API::fetchAlertContacts($this->api_key);
         $this->_status->addMessage('info', '<pre>'.print_r($json, true).'</pre>', TRUE);
+        */
 
         $data = array();
         foreach(pm_Domain::getAllDomains() as $id=>$pm_Domain) {
@@ -893,9 +926,17 @@ class IndexController extends pm_Controller_Action
                 }
                 // Monitor exists
                 elseif(in_array($this->mapping_table[$guid]->ur_id, $monitor_ids)) {
-                    $ur_status = '<span data-toggle="tooltip" data-html="true" title="'.$this->_tooltip_content_monitor($monitors[$this->mapping_table[$guid]->ur_id]).'"><i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizeURid', [ 'ur_id' => $this->mapping_table[$guid]->ur_id ]).'<span>';
-                    
                     $actions['updatemonitor'] = '<a href="'.$this->_helper->url('updateMonitor', 'index').'?guid='.$guid.'&ur_id='.$this->mapping_table[$guid]->ur_id.'"><i class="fa fa-refresh text-info"></i> '.pm_Locale::lmsg('synchronizeUpdateMonitor').'</a>';
+
+                    if($monitors[$this->mapping_table[$guid]->ur_id]->status > 0) {
+                        $ur_status = '<span data-toggle="tooltip" data-html="true" title="'.$this->_tooltip_content_monitor($monitors[$this->mapping_table[$guid]->ur_id]).'"><i class="fa fa-play text-success"></i> '.pm_Locale::lmsg('synchronizeURid', [ 'ur_id' => $this->mapping_table[$guid]->ur_id ]).'<span>';
+                        $actions['pausemonitor'] = '<a href="'.$this->_helper->url('statusMonitor', 'index').'?guid='.$guid.'&ur_id='.$this->mapping_table[$guid]->ur_id.'&status=0"><i class="fa fa-pause text-info"></i> '.pm_Locale::lmsg('synchronizePauseMonitor').'</a>';
+                    }
+                    else {
+                        $ur_status = '<span data-toggle="tooltip" data-html="true" title="'.$this->_tooltip_content_monitor($monitors[$this->mapping_table[$guid]->ur_id]).'"><i class="fa fa-pause text-muted"></i> '.pm_Locale::lmsg('synchronizeURid', [ 'ur_id' => $this->mapping_table[$guid]->ur_id ]).'<span>';
+                        $actions['startmonitor'] = '<a href="'.$this->_helper->url('statusMonitor', 'index').'?guid='.$guid.'&ur_id='.$this->mapping_table[$guid]->ur_id.'&status=1"><i class="fa fa-play text-info"></i> '.pm_Locale::lmsg('synchronizeStartMonitor').'</a>';
+                    }
+                    
                     $actions['monitor'] = '<a href="'.$this->_helper->url('deleteMonitor', 'index').'?guid='.$guid.'&ur_id='.$this->mapping_table[$guid]->ur_id.'" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeDeleteMonitorMessage', [ 'ur_id' => $this->mapping_table[$guid]->ur_id ]).'\')) { return false; }"><i class="fa fa-trash text-info"></i> '.pm_Locale::lmsg('synchronizeDeleteMonitor').'</a>';
                     $show_others_alert = FALSE;
                 }
@@ -947,7 +988,7 @@ class IndexController extends pm_Controller_Action
         foreach($this->mapping_table as $guid=>$monitor) {
             $actions = array();
 
-            // GUID not yet exists in data. This means domain no more exists 
+            // GUID not in data. This means domain no more exists 
             if(!array_key_exists($guid, $data)) {
                 $mapping_status = '<i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizeMappingStillExists');
                 $actions['mapunmap'] = '<a href="'.$this->_helper->url('unmap', 'index').'?guid='.$guid.'" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeUnmapMessageNoDomain').'\')) { return false; }"><i class="fa fa-chain-broken text-info"></i> '.pm_Locale::lmsg('synchronizeUnmap').'</a>';
@@ -963,7 +1004,15 @@ class IndexController extends pm_Controller_Action
                     $ur_status = '<i class="fa fa-circle-o-notch fa-spin text-info"></i> '.pm_Locale::lmsg('synchronizePending'.key($pending), [ 'delay' => reset($pending) ]);
                 }
                 elseif(in_array($monitor->ur_id, $monitor_ids)) {
-                    $ur_status = '<span data-toggle="tooltip" data-html="true" title="'.$this->_tooltip_content_monitor($monitors[$monitor->ur_id]).'"><i class="fa fa-check-circle text-success"></i> '.pm_Locale::lmsg('synchronizeMonitorStillExists', [ 'ur_id' => $monitor->ur_id ]).'</span>';
+                    if($monitors[$monitor->ur_id]->status > 0) {
+                        $ur_status = '<span data-toggle="tooltip" data-html="true" title="'.$this->_tooltip_content_monitor($monitors[$monitor->ur_id]).'"><i class="fa fa-play text-success"></i> '.pm_Locale::lmsg('synchronizeMonitorStillExists', [ 'ur_id' => $monitor->ur_id ]).'</span>';
+                        $actions['pausemonitor'] = '<a href="'.$this->_helper->url('statusMonitor', 'index').'?guid='.$guid.'&ur_id='.$monitor->ur_id.'&status=0"><i class="fa fa-pause text-info"></i> '.pm_Locale::lmsg('synchronizePauseMonitor').'</a>';
+                    }
+                    else {
+                        $ur_status = '<span data-toggle="tooltip" data-html="true" title="'.$this->_tooltip_content_monitor($monitors[$monitor->ur_id]).'"><i class="fa fa-pause text-muted"></i> '.pm_Locale::lmsg('synchronizeMonitorStillExists', [ 'ur_id' => $monitor->ur_id ]).'</span>';
+                        $actions['startmonitor'] = '<a href="'.$this->_helper->url('statusMonitor', 'index').'?guid='.$guid.'&ur_id='.$monitor->ur_id.'&status=1"><i class="fa fa-play text-info"></i> '.pm_Locale::lmsg('synchronizeStartMonitor').'</a>';
+                    }
+
                     $actions['monitor'] = '<a href="'.$this->_helper->url('deleteMonitor', 'index').'?guid='.$guid.'&ur_id='.$monitor->ur_id.'" onclick="if(!confirm(\''.pm_Locale::lmsg('synchronizeDeleteMonitorMessage').'\')) { return false; }"><i class="fa fa-trash text-info"></i> '.pm_Locale::lmsg('synchronizeDeleteMonitor').'</a>';
                 }
                 else {
@@ -1071,7 +1120,8 @@ class IndexController extends pm_Controller_Action
             <strong>ID</strong> '.$monitor->id.'<br />
             <strong>Name</strong> '.htmlentities($monitor->friendly_name).'<br />
             <strong>URL</strong> '.htmlentities($monitor->url).'<br />
-            <strong>Created on</strong> '.date('d/m/Y', $monitor->create_datetime).'
+            <strong>Created on</strong> '.date('d/m/Y', $monitor->create_datetime).'<br />
+            <strong>Status</strong> '.($monitor->status ? pm_Locale::lmsg('synchronizeMonitorRunning') : pm_Locale::lmsg('synchronizeMonitorPaused')).'
         </div>';
 
         return str_replace('"', '\'', str_replace("\n", '', $content)); // because it's used in html attribute

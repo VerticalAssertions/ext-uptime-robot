@@ -132,5 +132,12 @@ $messages = [
     'synchronizeMonitorStillExists'     => 'Monitor %ur_id%% still exists', //ur_id
     'synchronizeExternal'               => 'External',
     'synchronizeLocal'                  => 'Local',
-
+    'synchronizeStartMonitor'           => 'Start monitor',
+    'synchronizePauseMonitor'           => 'Pause monitor',
+    'synchronizeMonitorPaused'          => 'paused',
+    'synchronizeMonitorRunning'         => 'running',
+    'synchronizeStartMonitorDone'       => 'Monitor with id %%ur_id%% has been started', // ur_id
+    'synchronizeStartMonitorNOK'        => 'Unable to start monitor with id %%ur_id%%.Output received: %%json%%', //ur_id, json
+    'synchronizePauseMonitorDone'       => 'Monitor with id %%ur_id%% has been paused', // ur_id
+    'synchronizePauseMonitorNOK'        => 'Unable to pause monitor with id %%ur_id%%. Output received: %%json%%', // ur_id, json
 ];

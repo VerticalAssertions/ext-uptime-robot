@@ -161,6 +161,31 @@ class Modules_UptimeRobot_API
     }
 
     /**
+     * Edit monitor status
+     *
+     * @param string $apikey
+     * @param string $url
+     * @param array  $status optional parameters
+     *
+     * @return mixed|stdClass
+     */
+    public static function statusUptimeMonitor($apikey, $id, $status)
+    {
+        $params = array(
+            'id' => $id,
+            'status' => $status,
+            );
+
+        $response = self::doApiCallCurl($apikey, 'https://api.uptimerobot.com/v2/editMonitor', $params);
+
+        if (!empty($response)) {
+            return $response;
+        }
+
+        return FALSE;
+    }
+
+    /**
      * Delete monitor for the transmitted monitor ID and API key
      *
      * @param string $apikey

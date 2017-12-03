@@ -33,6 +33,11 @@ class IndexController extends pm_Controller_Action
         $this->timezone = pm_Settings::get('timezone', '');
         date_default_timezone_set($this->timezone);
 
+        $this->defaultAlertContact = pm_Settings::get('defaultAlertContact', '');
+        if(empty($this->defaultAlertContact)) {
+            $this->_status->addMessage('warning', pm_Locale::lmsg('noDefaultAlertContact',  [ 'settingsurl' => $this->_helper->url('action', 'settings') ]), TRUE);
+        }
+
         $this->view->pageTitle = 'Uptime Robot';
         $this->view->tabs = [
             [
@@ -55,7 +60,7 @@ class IndexController extends pm_Controller_Action
 
             // Error relay at database creation
             if(isset($this->_requestMapper->_status) && is_array($this->_requestMapper->_status)) {
-                $this->_status->addMessage(key($this->_requestMapper->_status), pm_Locale::lmsg(reset($this->_requestMapper->_status)[0], reset($this->_requestMapper->_status)[1]));
+                $this->_status->addMessage(key($this->_requestMapper->_status), pm_Locale::lmsg(reset($this->_requestMapper->_status)[0], reset($this->_requestMapper->_status)[1]), TRUE);
             }
 
             // Local mapping table between domains and monitors
@@ -116,7 +121,7 @@ class IndexController extends pm_Controller_Action
             if ($api_key) {
                 $account = Modules_UptimeRobot_API::fetchUptimeRobotAccount($api_key);
                 if (isset($account->stat) && $account->stat == 'ok') {
-                    $this->_status->addMessage('info', pm_Locale::lmsg('setupApiKeySaved'));
+                    $this->_status->addMessage('info', pm_Locale::lmsg('setupApiKeySaved'), TRUE);
                 } else {
                     $error = isset($account->errorMsg) ? $account->errorMsg : json_encode($account);
                     $this->_status->addError(pm_Locale::lmsg('setupApiKeyInvalid', [
@@ -167,7 +172,7 @@ class IndexController extends pm_Controller_Action
                 $account = Modules_UptimeRobot_API::fetchUptimeRobotAccount($api_key);
 
                 if ($account->stat == 'ok') {
-                    $this->_status->addMessage('info', pm_Locale::lmsg('setupApiKeySaved'));
+                    $this->_status->addMessage('info', pm_Locale::lmsg('setupApiKeySaved'), TRUE);
                 } else {
                     $this->_status->addError(pm_Locale::lmsg('setupApiKeyInvalid'));
                 }
@@ -313,14 +318,14 @@ class IndexController extends pm_Controller_Action
 
             // Update mapping table
             if($db_error = $this->_requestMapper->saveMapping($this->mapping_table[$guid])) {
-                $this->_status->addMessage('error', $db_error);
+                $this->_status->addMessage('error', $db_error, TRUE);
             }
             else {
-                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeMapDone', [ 'domain' => $pm_Domain->getName(), 'ur_id' => $ur_id ]));
+                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeMapDone', [ 'domain' => $pm_Domain->getName(), 'ur_id' => $ur_id ]), TRUE);
             }
         }
         else {
-            $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeInvalidRequest'));
+            $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeInvalidRequest'), TRUE);
         }
 
         $this->_redirect('index/synchronize');
@@ -341,19 +346,19 @@ class IndexController extends pm_Controller_Action
 
                 // Update mapping table
                 if($db_error = $this->_requestMapper->deleteMapping($this->mapping_table[$guid])) {
-                    $this->_status->addMessage('error', $db_error);
+                    $this->_status->addMessage('error', $db_error, TRUE);
                 }
                 else {
-                    $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeUnmapDone', [ 'domain' => $old_mapping->url, 'ur_id' => $old_mapping->ur_id ]));
+                    $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeUnmapDone', [ 'domain' => $old_mapping->url, 'ur_id' => $old_mapping->ur_id ]), TRUE);
                     unset($this->mapping_table[$guid]);
                 }
             }
             else {
-                $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeMappingNotFound', [ 'guid' => $guid ]));
+                $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeMappingNotFound', [ 'guid' => $guid ]), TRUE);
             }
         }
         else {
-            $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeInvalidRequest'));
+            $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeInvalidRequest'), TRUE);
         }
 
         $this->_redirect('index/synchronize');
@@ -395,21 +400,21 @@ class IndexController extends pm_Controller_Action
 
                 // Update mapping table
                 if($db_error = $this->_requestMapper->saveMapping($this->mapping_table[$guid])) {
-                    $this->_status->addMessage('error', $db_error);
+                    $this->_status->addMessage('error', $db_error, TRUE);
                 }
                 else {
-                    $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeCreateMonitorDone', [ 'domain' => $pm_Domain->getName(), 'ur_id' => $json->monitor->id ]));
+                    $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeCreateMonitorDone', [ 'domain' => $pm_Domain->getName(), 'ur_id' => $json->monitor->id ]), TRUE);
                 }
             }
             elseif($json) {
-                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeCreateMonitorNOK', [ 'domain' => $pm_Domain->getName(), 'json' => json_encode($json) ]));
+                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeCreateMonitorNOK', [ 'domain' => $pm_Domain->getName(), 'json' => json_encode($json) ]), TRUE);
             }
             else {
-                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeNoResponse'));
+                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeNoResponse'), TRUE);
             }
         }
         else {
-            $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeInvalidRequest'));
+            $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeInvalidRequest'), TRUE);
         }
 
         $this->_redirect('index/synchronize');
@@ -449,17 +454,17 @@ class IndexController extends pm_Controller_Action
                 )); // {"stat":"ok","monitor":{"id":777712827}}
 
             if($json && $json->stat == 'ok' && !empty($json->monitor->id)) {
-                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeUpdateMonitorDone', [ 'domain' => $pm_Domain->getName(), 'ur_id' => $json->monitor->id ]));
+                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeUpdateMonitorDone', [ 'domain' => $pm_Domain->getName(), 'ur_id' => $json->monitor->id ]), TRUE);
             }
             elseif($json) {
-                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeUpdateMonitorNOK', [ 'domain' => $pm_Domain->getName(), 'json' => json_encode($json) ]));
+                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeUpdateMonitorNOK', [ 'domain' => $pm_Domain->getName(), 'json' => json_encode($json) ]), TRUE);
             }
             else {
-                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeNoResponse'));
+                $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeNoResponse'), TRUE);
             }
         }
         else {
-            $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeInvalidRequest'));
+            $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeInvalidRequest'), TRUE);
         }
 
         $this->_redirect('index/synchronize');
@@ -483,21 +488,21 @@ class IndexController extends pm_Controller_Action
 
                 // Update mapping table
                 if($db_error = $this->_requestMapper->saveMapping($this->mapping_table[$guid])) {
-                    $this->_status->addMessage('error', $db_error);
+                    $this->_status->addMessage('error', $db_error, TRUE);
                 }
                 else {
-                    $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeDeleteMonitorDone', [ 'domain' => $this->mapping_table[$guid]->url, 'ur_id' => $this->mapping_table[$guid]->ur_id ]));
+                    $this->_status->addMessage('info', pm_Locale::lmsg('synchronizeDeleteMonitorDone', [ 'domain' => $this->mapping_table[$guid]->url, 'ur_id' => $this->mapping_table[$guid]->ur_id ]), TRUE);
                 }
             }
             elseif($json) {
-                $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeDeleteMonitorNOK', [ 'ur_id' => $ur_id, 'json' => json_encode($json) ]));
+                $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeDeleteMonitorNOK', [ 'ur_id' => $ur_id, 'json' => json_encode($json) ]), TRUE);
             }
             else {
-                $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeNoResponse'));
+                $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeNoResponse'), TRUE);
             }
         }
         else {
-            $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeInvalidRequest'));
+            $this->_status->addMessage('error', pm_Locale::lmsg('synchronizeInvalidRequest'), TRUE);
         }
         
         $this->_redirect('index/synchronize');
@@ -819,9 +824,11 @@ class IndexController extends pm_Controller_Action
             $monitors_urls[preg_replace('#^http(?:s)?://(.*)/?$#U', '$1', $monitor->url)][] = $monitor->id;
         }
 
-        //$this->_status->addMessage('info', print_r($this->mapping_table, true));
-        //$this->_status->addMessage('info', date_default_timezone_get());
-        //$this->_status->addMessage('info', print_r(Modules_UptimeRobot_API::fetchUptimeRobotAccount($this->api_key), true));
+        //$this->_status->addMessage('info', print_r($this->mapping_table, true), TRUE);
+        //$this->_status->addMessage('info', print_r(Modules_UptimeRobot_API::fetchUptimeRobotAccount($this->api_key), true), TRUE);
+        
+        $json = Modules_UptimeRobot_API::fetchAlertContacts($this->api_key);
+        $this->_status->addMessage('info', '<pre>'.print_r($json, true).'</pre>', TRUE);
 
         $data = array();
         foreach(pm_Domain::getAllDomains() as $id=>$pm_Domain) {

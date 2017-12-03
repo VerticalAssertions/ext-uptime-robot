@@ -7,7 +7,6 @@ $messages = [
     'noDefaultAlertContact'             => 'No default alert contact has been set: new monitors won\'t warn anyone. You can set it on <a href="%%settingsurl%%">extension settings</a>',
     'setupApiKeyInputLabel'             => 'Main API Key',
     'setupApiKeySaveButton'             => 'Save',
-    'setupApiKeySaved'                  => 'API Key has been saved successfully!',
     'setupApiKeyInvalid'                => 'Invalid API Key: %%error%%.',
     'setupTimezoneInputLabel'           => 'Timezone set in Uptime Robot account',
     'setupDefaultAlertContact'          => 'Default alert contact',

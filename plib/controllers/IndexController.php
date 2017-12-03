@@ -138,19 +138,14 @@ class IndexController extends pm_Controller_Action
             if ($api_key) {
                 $account = Modules_UptimeRobot_API::fetchUptimeRobotAccount($api_key);
                 if (isset($account->stat) && $account->stat == 'ok') {
-                    $this->_status->addMessage('info', pm_Locale::lmsg('setupApiKeySaved'), TRUE);
+                    $this->_status->addMessage('info', pm_Locale::lmsg('setupApiKeyValid'), TRUE);
                 } else {
                     $error = isset($account->errorMsg) ? $account->errorMsg : json_encode($account);
-                    $this->_status->addError(pm_Locale::lmsg('setupApiKeyInvalid', [
-                        'error' => $error
-                    ]));
+                    $this->_status->addError(pm_Locale::lmsg('setupApiKeyInvalid', [ 'error' => $error ]));
                 }
             }
 
-            $this->_helper->json(
-                [
-                    'redirect' => pm_Context::getBaseUrl()
-                ]);
+            $this->_helper->json([ 'redirect' => pm_Context::getBaseUrl() ]);
         }
     }
 
@@ -199,21 +194,21 @@ class IndexController extends pm_Controller_Action
             pm_Settings::set('apikey', trim($api_key));
             $timezone = $this->view->settingsForm->getValue('timezone');
             pm_Settings::set('timezone', trim($timezone));
-            $timezone = $this->view->settingsForm->getValue('defaultAlertContact');
+            $defaultAlertContact = $this->view->settingsForm->getValue('defaultAlertContact');
             pm_Settings::set('defaultAlertContact', trim($defaultAlertContact));
 
-            if ($api_key) {
+            if($api_key) {
                 $account = Modules_UptimeRobot_API::fetchUptimeRobotAccount($api_key);
 
-                if ($account->stat == 'ok') {
-                    $this->_status->addMessage('info', pm_Locale::lmsg('setupApiKeySaved'), TRUE);
-                } else {
-                    $this->_status->addError(pm_Locale::lmsg('setupApiKeyInvalid'));
+                if($account->stat != 'ok') {
+                    $this->_status->addMessage('error', pm_Locale::lmsg('setupApiKeyInvalid'), TRUE);
                 }
             }
 
-            $this->_helper->json(array('redirect' => pm_Context::getBaseUrl()));
+            $this->_status->addMessage('info', pm_Locale::lmsg('settingsSaved'), TRUE);
 
+
+            $this->_helper->json([ 'redirect' => pm_Context::getBaseUrl() ]);
             return;
         }
 

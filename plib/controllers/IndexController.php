@@ -80,8 +80,10 @@ class IndexController extends pm_Controller_Action
                 $this->_status->addMessage(key($this->_requestMapper->_status), pm_Locale::lmsg(reset($this->_requestMapper->_status)[0], reset($this->_requestMapper->_status)[1]), TRUE);
             }
 
-            // Local mapping table between domains and monitors
-            $this->mapping_table = $this->_requestMapper->getMappingTable();
+            if(!$this->_requestMapper->error) {
+                // Local mapping table between domains and monitors
+                $this->mapping_table = $this->_requestMapper->getMappingTable();
+            }
         }
     }
 
@@ -138,7 +140,7 @@ class IndexController extends pm_Controller_Action
             if ($api_key) {
                 $account = Modules_UptimeRobot_API::fetchUptimeRobotAccount($api_key);
                 if (isset($account->stat) && $account->stat == 'ok') {
-                    $this->_status->addMessage('info', pm_Locale::lmsg('setupApiKeyValid'), TRUE);
+                    //$this->_status->addMessage('info', pm_Locale::lmsg('setupApiKeyValid'), TRUE);
                 } else {
                     $error = isset($account->errorMsg) ? $account->errorMsg : json_encode($account);
                     $this->_status->addError(pm_Locale::lmsg('setupApiKeyInvalid', [ 'error' => $error ]));
@@ -1057,7 +1059,11 @@ class IndexController extends pm_Controller_Action
         }
         unset($line);
 
-        $list = new pm_View_List_Simple($this->view, $this->_request);
+        $options = [
+            'defaultSortField' => 'name',
+            'defaultSortDirection' => pm_View_List_Simple::SORT_DIR_UP, // SORT_DIR_DOWN
+        ];
+        $list = new pm_View_List_Simple($this->view, $this->_request, $options);
         $list->setData($data);
         $list->setColumns([
             //pm_View_List_Simple::COLUMN_SELECTION,
